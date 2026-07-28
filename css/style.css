@@ -2078,3 +2078,384 @@ body{
     margin-bottom:12px;
 
 }
+/* =====================================================
+   ARRIVAL REGISTER LAYOUT
+===================================================== */
+
+.group-header{
+
+    background:var(--white);
+
+    border:1px solid var(--border);
+
+    border-radius:var(--radius);
+
+    padding:14px 16px;
+
+    margin-bottom:12px;
+
+}
+
+.group-info-grid.compact{
+
+    grid-template-columns:
+        repeat(auto-fit,minmax(165px,1fr));
+
+    gap:12px;
+
+    margin-bottom:0;
+
+}
+
+.group-info-grid.compact .form-group{
+
+    margin-bottom:0;
+
+}
+
+.group-info-grid.compact input,
+.group-info-grid.compact select{
+
+    padding:8px 10px;
+
+    font-size:14px;
+
+}
+
+.group-info-grid.compact label{
+
+    font-size:12px;
+
+    margin-bottom:4px;
+
+}
+
+/* ---------- COLLAPSIBLE ---------- */
+
+.collapse-panel{
+
+    display:none;
+
+}
+
+.collapse-panel.panel-open{
+
+    display:block;
+
+}
+
+.group-header .collapse-panel.panel-open{
+
+    margin-top:14px;
+
+    padding-top:14px;
+
+    border-top:1px solid var(--border);
+
+}
+
+/* ---------- TOOLBAR ---------- */
+
+.register-toolbar{
+
+    display:flex;
+
+    flex-wrap:wrap;
+
+    gap:10px;
+
+    background:var(--white);
+
+    border:1px solid var(--border);
+
+    border-radius:var(--radius);
+
+    padding:10px 12px;
+
+    margin-bottom:12px;
+
+}
+
+.toolbar-set{
+
+    display:flex;
+
+    flex-wrap:wrap;
+
+    gap:6px;
+
+    align-items:center;
+
+    padding-right:10px;
+
+    border-right:1px solid var(--border);
+
+}
+
+.toolbar-set:last-child{
+
+    border-right:none;
+
+    padding-right:0;
+
+}
+
+.toolbar-toggles{
+
+    margin-left:auto;
+
+}
+
+.register-toolbar button{
+
+    border:none;
+
+    background:var(--primary);
+
+    color:var(--white);
+
+    padding:8px 13px;
+
+    border-radius:7px;
+
+    cursor:pointer;
+
+    font-size:13px;
+
+    white-space:nowrap;
+
+    transition:.2s;
+
+}
+
+.register-toolbar button:hover{
+
+    background:var(--primary-dark);
+
+}
+
+.register-toolbar button.primary-action{
+
+    background:var(--success);
+
+    font-weight:700;
+
+}
+
+.register-toolbar button.primary-action:hover{
+
+    background:#1e7e34;
+
+}
+
+.register-toolbar input[type="number"]{
+
+    width:90px;
+
+    padding:8px 10px;
+
+    border:1px solid var(--border);
+
+    border-radius:7px;
+
+    font-size:13px;
+
+}
+
+.register-toolbar button.toggle-button{
+
+    background:var(--secondary);
+
+    color:var(--muted);
+
+    border:1px solid var(--border);
+
+}
+
+.register-toolbar button.toggle-button:hover{
+
+    background:var(--border);
+
+}
+
+.register-toolbar button.toggle-button.toggle-on{
+
+    background:var(--primary);
+
+    color:var(--white);
+
+    border-color:var(--primary);
+
+}
+
+/* ---------- STICKY REGISTER ---------- */
+
+.register-scroll{
+
+    max-height:58vh;
+
+    overflow-y:auto;
+
+    padding-top:0;
+
+}
+
+.register-scroll .register-table thead th{
+
+    position:sticky;
+
+    top:0;
+
+    z-index:3;
+
+    box-shadow:0 2px 0 var(--border);
+
+}
+
+.bulk-import-panel.collapse-panel{
+
+    margin-bottom:12px;
+
+}
+/* =====================================================
+   OCCUPANCY RULES
+===================================================== */
+
+.category-table th{
+
+    font-size:11px;
+
+    line-height:1.3;
+
+    text-align:center;
+
+    vertical-align:bottom;
+
+}
+
+.category-table td{
+
+    text-align:center;
+
+}
+
+.category-table td:first-child{
+
+    text-align:left;
+
+}
+
+.category-table td:last-child{
+
+    white-space:nowrap;
+
+}
+
+.rule-input{
+
+    width:58px;
+
+    padding:5px 4px;
+
+    border:1px solid var(--border);
+
+    border-radius:6px;
+
+    font-size:13px;
+
+    text-align:center;
+
+    background:var(--white);
+
+    color:var(--text);
+
+}
+
+.rule-input:focus{
+
+    outline:none;
+
+    border-color:var(--primary);
+
+    box-shadow:0 0 0 2px rgba(31,78,121,.25);
+
+}
+
+.capacity-cell{
+
+    font-size:12px;
+
+    color:var(--muted);
+
+    white-space:nowrap;
+
+}
+/* =====================================================
+   CHILDREN COLUMN
+===================================================== */
+
+.children-cell{
+
+    text-align:center;
+
+    white-space:nowrap;
+
+}
+
+.childCount{
+
+    width:52px;
+
+    padding:5px 4px;
+
+    border:1px solid var(--border);
+
+    border-radius:6px;
+
+    font-size:13px;
+
+    text-align:center;
+
+}
+
+.childAges{
+
+    display:flex;
+
+    flex-wrap:wrap;
+
+    gap:4px;
+
+    justify-content:center;
+
+    margin-top:5px;
+
+}
+
+.childAge{
+
+    width:46px;
+
+    padding:3px;
+
+    border:1px solid var(--warning);
+
+    border-radius:5px;
+
+    font-size:12px;
+
+    text-align:center;
+
+    background:#fff8e1;
+
+}
+
+.register-table td.pax-invalid{
+
+    background:#fdecea !important;
+
+    color:var(--danger);
+
+    font-weight:700;
+
+}

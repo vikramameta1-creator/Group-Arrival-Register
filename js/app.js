@@ -514,12 +514,12 @@ const REGISTER_COLUMNS = {
     CATEGORY: 2,
     GUEST:    3,
     PAX:      4,
-    MEAL:     5,
-    MOBILE:   6,
-    EXTRA:    7
+    CHILDREN: 5,
+    MEAL:     6,
+    MOBILE:   7,
+    EXTRA:    8
 
 };
-
 
 /* =====================================================
    REGISTER ROW TEMPLATE
@@ -531,7 +531,8 @@ function createRowHTML(
     guest = "",
     pax = 1,
     meal = "",
-    mobile = ""
+    mobile = "",
+    children = 0
 ) {
 
     return `
@@ -547,9 +548,22 @@ function createRowHTML(
 
         <td contenteditable="true">${pax}</td>
 
+        <td class="children-cell">
+
+            <input
+                type="number"
+                class="childCount"
+                min="0"
+                max="9"
+                value="${children}">
+
+            <div class="childAges"></div>
+
+        </td>
+
         <td>
             <select class="meal-plan">
-              <option value=""    ${meal === ""    ? "selected" : ""}>Not Set</option>
+                <option value=""    ${meal === ""    ? "selected" : ""}>Not Set</option>
                 <option value="EP"  ${meal === "EP"  ? "selected" : ""}>EP</option>
                 <option value="CP"  ${meal === "CP"  ? "selected" : ""}>CP</option>
                 <option value="MAP" ${meal === "MAP" ? "selected" : ""}>MAP</option>
@@ -586,7 +600,6 @@ function createRowHTML(
     `;
 }
 
-
 /* =====================================================
    REGISTER BODY
 ===================================================== */
@@ -615,12 +628,27 @@ function getRegisterRows() {
 
         const roomNo =
             row.cells[REGISTER_COLUMNS.ROOM]
-            ?.innerText
-            .trim() || "";
+            ?.innerText.trim() || "";
+
+        const pax =
+            Number(
+                row.cells[REGISTER_COLUMNS.PAX]
+                ?.innerText
+            ) || 0;
+
+        const children =
+            Number(
+                row.querySelector(".childCount")?.value
+            ) || 0;
+
+        const childAges =
+            [...row.querySelectorAll(".childAge")]
+            .map(input => input.value.trim())
+            .filter(value => value !== "");
 
         rows.push({
 
-            roomNo: roomNo,
+            roomNo:   roomNo,
 
             category:
                 typeof getRoomCategory === "function"
@@ -629,24 +657,23 @@ function getRegisterRows() {
 
             guestName:
                 row.cells[REGISTER_COLUMNS.GUEST]
-                ?.innerText
-                .trim() || "",
+                ?.innerText.trim() || "",
 
-            pax:
-                Number(
-                    row.cells[REGISTER_COLUMNS.PAX]
-                    ?.innerText
-                ) || 0,
+            pax:      pax,
+
+            children: children,
+
+            adults:   Math.max(pax - children, 0),
+
+            childAges: childAges,
 
             meal:
                 row.querySelector(".meal-plan")
-                ?.value
-                ?.toUpperCase() || "",
+                ?.value?.toUpperCase() || "",
 
             mobile:
                 row.cells[REGISTER_COLUMNS.MOBILE]
-                ?.innerText
-                .trim() || "",
+                ?.innerText.trim() || "",
 
             vip:
                 row.querySelector(".vipGuest")
@@ -654,8 +681,7 @@ function getRegisterRows() {
 
             specialRequest:
                 row.querySelector(".specialRequest")
-                ?.value
-                ?.trim() || ""
+                ?.value?.trim() || ""
 
         });
 
@@ -663,7 +689,6 @@ function getRegisterRows() {
 
     return rows;
 }
-
 /* =====================================================
    LOAD REGISTER ROWS
 ===================================================== */
@@ -680,13 +705,14 @@ function loadRegisterRows(rows = []) {
 
         body.insertAdjacentHTML(
             "beforeend",
-            createRowHTML(
+          createRowHTML(
                 index + 1,
                 row.roomNo || "",
                 row.guestName || "",
                 row.pax || 1,
                 row.meal || "",
-                row.mobile || ""
+                row.mobile || "",
+                row.children || 0
             )
         );
 
@@ -705,11 +731,13 @@ function loadRegisterRows(rows = []) {
         const request =
             currentRow.querySelector(".specialRequest");
 
-        if (request) {
+      if (request) {
 
             request.value =
                 row.specialRequest || "";
         }
+
+        renderChildAges(currentRow, row.childAges || []);
 
     });
 
@@ -1054,24 +1082,55 @@ function isRoomMasterEnforced() {
 
 function getInvalidRooms() {
 
-    if (!isRoomMasterEnforced()) return [];
+    const problems = [];
 
-    const bad = [];
+    const seen = {};
 
-    getRegisterRows().forEach(row => {
+    const enforce = isRoomMasterEnforced();
+
+    getRegisterRows().forEach((row, index) => {
+
+        const line = "Row " + (index + 1) + " — ";
+
+        if (!row.roomNo) return;
 
         if (
-            row.roomNo &&
+            enforce &&
             typeof isRoomInMaster === "function" &&
             !isRoomInMaster(row.roomNo)
         ) {
 
-            bad.push(row.roomNo);
+            problems.push(
+                line + "room " + row.roomNo +
+                " is not in the Room Master"
+            );
+        }
+
+        if (seen[row.roomNo]) {
+
+            problems.push(
+                line + "room " + row.roomNo +
+                " is already used in row " + seen[row.roomNo]
+            );
+
+        } else {
+
+            seen[row.roomNo] = index + 1;
+        }
+
+        const capacity = getRowCapacityError(row);
+
+        if (capacity) {
+
+            problems.push(
+                line + "room " + row.roomNo +
+                " exceeds occupancy (" + capacity + ")"
+            );
         }
 
     });
 
-    return [...new Set(bad)];
+    return problems;
 }
 
 
@@ -1083,41 +1142,73 @@ function updateRegisterCategories() {
 
     const enforce = isRoomMasterEnforced();
 
-    [...body.rows].forEach(row => {
+    const rows = getRegisterRows();
+
+    const seen = {};
+
+    [...body.rows].forEach((element, index) => {
 
         const roomCell =
-            row.cells[REGISTER_COLUMNS.ROOM];
+            element.cells[REGISTER_COLUMNS.ROOM];
 
         const categoryCell =
-            row.cells[REGISTER_COLUMNS.CATEGORY];
+            element.cells[REGISTER_COLUMNS.CATEGORY];
+
+        const paxCell =
+            element.cells[REGISTER_COLUMNS.PAX];
 
         if (!roomCell || !categoryCell) return;
 
-        const room =
-            roomCell.innerText.trim();
+        const data = rows[index] || {};
 
-        const category =
-            typeof getRoomCategory === "function"
-                ? getRoomCategory(room)
-                : "";
+        const room = data.roomNo || "";
 
-        const invalid =
-            enforce &&
-            room !== "" &&
-            typeof isRoomInMaster === "function" &&
-            !isRoomInMaster(room);
+        let error = "";
 
-        if (invalid) {
+        if (room) {
 
-            categoryCell.textContent = "NOT IN MASTER";
+            if (
+                enforce &&
+                typeof isRoomInMaster === "function" &&
+                !isRoomInMaster(room)
+            ) {
+
+                error = "NOT IN MASTER";
+
+            } else if (seen[room]) {
+
+                error = "DUPLICATE";
+
+            } else {
+
+                error = getRowCapacityError(data);
+            }
+
+            if (!seen[room]) seen[room] = index + 1;
+        }
+
+        if (error) {
+
+            categoryCell.textContent = error;
 
             categoryCell.className =
                 "roomCategory category-invalid";
 
             roomCell.classList.add("room-invalid");
 
+            if (paxCell) {
+
+                paxCell.classList.toggle(
+                    "pax-invalid",
+                    error !== "NOT IN MASTER" &&
+                    error !== "DUPLICATE"
+                );
+            }
+
             return;
         }
+
+        const category = data.category || "";
 
         categoryCell.textContent = category || "—";
 
@@ -1126,6 +1217,11 @@ function updateRegisterCategories() {
             (category ? "" : " category-unmapped");
 
         roomCell.classList.remove("room-invalid");
+
+        if (paxCell) {
+
+            paxCell.classList.remove("pax-invalid");
+        }
 
     });
 }
@@ -1356,35 +1452,22 @@ function saveCurrentGroup() {
 
         return;
     }
-/* ---------- Room Master Check ---------- */
 
-    const invalidRooms = getInvalidRooms();
+    /* ---------- Hard Block ---------- */
 
-    if (invalidRooms.length > 0) {
+    const problems = getInvalidRooms();
+
+    if (problems.length > 0) {
 
         alert(
-            "These rooms are not in the Room Master:\n\n" +
-            invalidRooms.join(", ") +
-            "\n\nAdd them under Room Master, or turn off\n" +
-            "room checking in Settings → Register Rules."
+            "Cannot save. Fix these first:\n\n" +
+            problems.slice(0, 10).join("\n") +
+            (problems.length > 10
+                ? "\n\nand " + (problems.length - 10) + " more"
+                : "")
         );
 
         return;
-    }
-    /* ---------- Duplicate Room Warning ---------- */
-
-    const duplicates = checkDuplicateRooms();
-
-    if (duplicates.length > 0) {
-
-        const proceed = confirm(
-            "Room number used more than once:\n\n" +
-            duplicates.join(", ") +
-            "\n\nThis is normal for shared rooms.\n" +
-            "Save anyway?"
-        );
-
-        if (!proceed) return;
     }
 
     const now = new Date().toLocaleString();
@@ -1423,10 +1506,7 @@ function saveCurrentGroup() {
     refreshApplication();
 
     alert("Group Saved Successfully");
-}
-
-
-/* =====================================================
+}/* =====================================================
    OPEN SAVED GROUP
 ===================================================== */
 
@@ -2844,61 +2924,196 @@ function toggleBulkImport() {
     );
 }
 /* =====================================================
+   CHILD AGE FIELDS
+
+   One age box per child. Adding a child adds a box.
+===================================================== */
+
+function renderChildAges(row, existingAges) {
+
+    if (!row) return;
+
+    const container =
+        row.querySelector(".childAges");
+
+    const countInput =
+        row.querySelector(".childCount");
+
+    if (!container || !countInput) return;
+
+    let count = Number(countInput.value) || 0;
+
+    if (count < 0) count = 0;
+
+    if (count > 9) count = 9;
+
+    countInput.value = count;
+
+    const previous =
+        existingAges ||
+        [...container.querySelectorAll(".childAge")]
+        .map(input => input.value);
+
+    container.innerHTML = "";
+
+    for (let i = 0; i < count; i++) {
+
+        container.insertAdjacentHTML(
+
+            "beforeend",
+
+            `<input
+                type="number"
+                class="childAge"
+                min="0"
+                max="17"
+                placeholder="Age"
+                value="${previous[i] || ""}">`
+        );
+
+    }
+}
+
+
+/* =====================================================
+   AUTO FILL PAX FROM ROOM CATEGORY
+===================================================== */
+
+function autoFillPaxFromRoom(row) {
+
+    if (
+        !row ||
+        typeof getRoomOccupancyRule !== "function"
+    ) {
+        return;
+    }
+
+    const roomCell =
+        row.cells[REGISTER_COLUMNS.ROOM];
+
+    const paxCell =
+        row.cells[REGISTER_COLUMNS.PAX];
+
+    if (!roomCell || !paxCell) return;
+
+    const roomNo = roomCell.innerText.trim();
+
+    if (!roomNo) return;
+
+    if (
+        typeof isRoomInMaster === "function" &&
+        !isRoomInMaster(roomNo)
+    ) {
+        return;
+    }
+
+    /* Only fill an untouched cell */
+
+    if (row.dataset.paxTouched === "1") return;
+
+    const rule = getRoomOccupancyRule(roomNo);
+
+    paxCell.innerText = rule.defaultAdults;
+}
+
+
+/* =====================================================
+   ROW CAPACITY CHECK
+===================================================== */
+
+function getRowCapacityError(row) {
+
+    if (typeof getRoomOccupancyRule !== "function") {
+
+        return "";
+    }
+
+    if (!row.roomNo) return "";
+
+    const category =
+        typeof getRoomCategory === "function"
+            ? getRoomCategory(row.roomNo)
+            : "";
+
+    if (!category) return "";
+
+    const rule = getRoomOccupancyRule(row.roomNo);
+
+    if (row.children > row.pax) {
+
+        return "CHILDREN > PAX";
+    }
+
+    if (row.pax > rule.maxOccupancy) {
+
+        return "MAX " + rule.maxOccupancy + " PAX";
+    }
+
+    if (row.children > rule.maxChildren) {
+
+        return "MAX " + rule.maxChildren + " CHILD";
+    }
+
+    if (row.adults > rule.maxAdults) {
+
+        return "MAX " + rule.maxAdults + " ADULTS";
+    }
+
+    return "";
+}
+/* =====================================================
    REGISTER EVENTS
 ===================================================== */
 
-function initializeRegisterEvents() {
+function handleRegisterInput(event) {
 
-    const body = getRegisterBody();
+    const row =
+        event?.target?.closest
+            ? event.target.closest("tr")
+            : null;
 
-  if (body) {
+    if (row) {
 
-       body.addEventListener(
-            "keydown",
-            handleRegisterKeydown
-        );
+        const cell =
+            event.target.closest("td");
 
-        body.addEventListener(
-            "beforeinput",
-            handleRegisterBeforeInput
-        );
+        /* Mark pax as manually edited */
 
-        body.addEventListener(
-            "input",
-            handleRegisterInput
-        );
+        if (
+            cell &&
+            cell.cellIndex === REGISTER_COLUMNS.PAX
+        ) {
 
-        body.addEventListener(
-            "change",
-            handleRegisterInput
-        );
+            row.dataset.paxTouched = "1";
+        }
 
-        body.addEventListener(
-            "focusout",
-            handleRegisterCleanup
-        );
+        /* Room typed — pull the default occupancy */
+
+        if (
+            cell &&
+            cell.cellIndex === REGISTER_COLUMNS.ROOM
+        ) {
+
+            autoFillPaxFromRoom(row);
+        }
+
+        /* Child count changed — redraw age boxes */
+
+        if (
+            event.target.classList &&
+            event.target.classList.contains("childCount")
+        ) {
+
+            renderChildAges(row);
+        }
+
     }
-
-    document
-        .getElementById("btnGenerateRows")
-        ?.addEventListener("click", generateRows);
-
-    document
-        .getElementById("btnAddRow")
-        ?.addEventListener("click", addRow);
-
-    document
-        .getElementById("btnProcessImport")
-        ?.addEventListener("click", processBulkImport);
-}
-function handleRegisterInput() {
 
     refreshRegisterViews();
 
     scheduleAutoSave();
 
 }
-
 
 /* =====================================================
    GROUP EVENTS
@@ -3133,3 +3348,50 @@ document.addEventListener(
     "DOMContentLoaded",
     initializeApplication
 );
+/* =====================================================
+   COLLAPSIBLE PANELS
+===================================================== */
+
+function togglePanel(panelId, buttonId, labelWhenOpen, labelWhenShut) {
+
+    const panel =
+        document.getElementById(panelId);
+
+    const button =
+        document.getElementById(buttonId);
+
+    if (!panel) return;
+
+    const isOpen =
+        panel.classList.toggle("panel-open");
+
+    if (button) {
+
+        button.textContent =
+            isOpen ? labelWhenOpen : labelWhenShut;
+
+        button.classList.toggle("toggle-on", isOpen);
+    }
+}
+
+
+function toggleNotes() {
+
+    togglePanel(
+        "notesPanel",
+        "btnToggleNotes",
+        "▴ Hide Notes",
+        "▾ Notes"
+    );
+}
+
+
+function toggleBulkImport() {
+
+    togglePanel(
+        "bulkImportPanel",
+        "btnToggleBulkImport",
+        "▴ Hide Bulk Import",
+        "▾ Bulk Import"
+    );
+}

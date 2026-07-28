@@ -3,18 +3,46 @@
    File    : js/room-master.js
    Version : 1.0.0 RC1
 
-   ROOM CATEGORY MASTER
+   ROOM CATEGORY MASTER + OCCUPANCY RULES
 
    Inventory first model:
        A room exists in the master whether or not it
        has a category. Unassigned rooms are visible.
 
+   Occupancy rule:
+       Max Occupancy caps the TOTAL people in a room.
+       Children are a subset of that total, never an
+       addition to it, so moving a person from the
+       adult column to the child column can never
+       create extra space.
+
    Depends on app.js for:
        DB, saveDatabase(), isRoomNumericOnly(),
-       switchPage(), refreshApplication()
+       switchPage()
 
    Load AFTER printing.js and BEFORE app.js
 ===================================================== */
+
+
+/* =====================================================
+   DEFAULT OCCUPANCY RULE
+===================================================== */
+
+const DEFAULT_OCCUPANCY_RULE = {
+
+    defaultAdults: 2,
+    maxAdults:     2,
+    maxChildren:   1,
+    maxOccupancy:  3
+
+};
+
+const OCCUPANCY_FIELDS = [
+    "defaultAdults",
+    "maxAdults",
+    "maxChildren",
+    "maxOccupancy"
+];
 
 
 /* =====================================================
@@ -27,24 +55,59 @@ function ensureRoomMaster() {
 
         DB.roomMaster = {
             categories: [],
-            rooms: {}
+            rooms: {},
+            rules: {}
         };
     }
 
-    if (!Array.isArray(DB.roomMaster.categories)) {
+    const master = DB.roomMaster;
 
-        DB.roomMaster.categories = [];
+    if (!Array.isArray(master.categories)) {
+
+        master.categories = [];
     }
 
     if (
-        !DB.roomMaster.rooms ||
-        typeof DB.roomMaster.rooms !== "object"
+        !master.rooms ||
+        typeof master.rooms !== "object"
     ) {
 
-        DB.roomMaster.rooms = {};
+        master.rooms = {};
     }
 
-    return DB.roomMaster;
+    if (
+        !master.rules ||
+        typeof master.rules !== "object"
+    ) {
+
+        master.rules = {};
+    }
+
+    /* Every category must have a rule */
+
+    master.categories.forEach(name => {
+
+        if (!master.rules[name]) {
+
+            master.rules[name] =
+                Object.assign({}, DEFAULT_OCCUPANCY_RULE);
+        }
+
+        OCCUPANCY_FIELDS.forEach(field => {
+
+            const value =
+                Number(master.rules[name][field]);
+
+            master.rules[name][field] =
+                isNaN(value) || value < 0
+                    ? DEFAULT_OCCUPANCY_RULE[field]
+                    : value;
+
+        });
+
+    });
+
+    return master;
 }
 
 
@@ -56,8 +119,10 @@ function normalizeRoomNumber(value) {
 
     let room = String(value || "").trim();
 
-    if (typeof isRoomNumericOnly === "function" &&
-        isRoomNumericOnly()) {
+    if (
+        typeof isRoomNumericOnly === "function" &&
+        isRoomNumericOnly()
+    ) {
 
         room = room.replace(/[^0-9]/g, "").slice(0, 3);
 
@@ -77,10 +142,11 @@ function compareRoomNumbers(a, b) {
     const numA = parseInt(a, 10);
     const numB = parseInt(b, 10);
 
-    const bothNumeric =
-        !isNaN(numA) && !isNaN(numB);
-
-    if (bothNumeric && numA !== numB) {
+    if (
+        !isNaN(numA) &&
+        !isNaN(numB) &&
+        numA !== numB
+    ) {
 
         return numA - numB;
     }
@@ -125,8 +191,6 @@ function parseRoomList(text) {
                     end = swap;
                 }
 
-                /* Guard against a runaway range */
-
                 if (end - start > 500) {
 
                     end = start + 500;
@@ -136,11 +200,10 @@ function parseRoomList(text) {
 
                 for (let i = start; i <= end; i++) {
 
-                    const room =
-                        String(i).padStart(width, "0");
-
                     const clean =
-                        normalizeRoomNumber(room);
+                        normalizeRoomNumber(
+                            String(i).padStart(width, "0")
+                        );
 
                     if (clean) result.push(clean);
                 }
@@ -154,8 +217,6 @@ function parseRoomList(text) {
             if (single) result.push(single);
 
         });
-
-    /* Remove duplicates, keep order */
 
     return [...new Set(result)];
 }
@@ -194,7 +255,12 @@ const RoomMasterRepository = {
 
         if (this.hasCategory(clean)) return false;
 
-        ensureRoomMaster().categories.push(clean);
+        const master = ensureRoomMaster();
+
+        master.categories.push(clean);
+
+        master.rules[clean] =
+            Object.assign({}, DEFAULT_OCCUPANCY_RULE);
 
         saveDatabase();
 
@@ -216,6 +282,12 @@ const RoomMasterRepository = {
         if (index < 0) return false;
 
         master.categories[index] = clean;
+
+        master.rules[clean] =
+            master.rules[oldName] ||
+            Object.assign({}, DEFAULT_OCCUPANCY_RULE);
+
+        delete master.rules[oldName];
 
         Object.keys(master.rooms).forEach(room => {
 
@@ -243,7 +315,7 @@ const RoomMasterRepository = {
 
         master.categories.splice(index, 1);
 
-        /* Rooms stay in inventory, become unassigned */
+        delete master.rules[name];
 
         Object.keys(master.rooms).forEach(room => {
 
@@ -260,6 +332,87 @@ const RoomMasterRepository = {
 
     },
 
+    /* ---------- Occupancy Rules ---------- */
+
+    getRule(category) {
+
+        const master = ensureRoomMaster();
+
+        if (
+            !category ||
+            !master.rules[category]
+        ) {
+
+            return Object.assign(
+                {},
+                DEFAULT_OCCUPANCY_RULE
+            );
+        }
+
+        return Object.assign(
+            {},
+            master.rules[category]
+        );
+
+    },
+
+    setRuleField(category, field, value) {
+
+        const master = ensureRoomMaster();
+
+        if (
+            !master.rules[category] ||
+            OCCUPANCY_FIELDS.indexOf(field) < 0
+        ) {
+
+            return false;
+        }
+
+        let number = Number(value);
+
+        if (isNaN(number) || number < 0) number = 0;
+
+        if (number > 20) number = 20;
+
+        master.rules[category][field] = number;
+
+        /* Keep the rule internally consistent */
+
+        const rule = master.rules[category];
+
+        if (rule.maxOccupancy < 1) {
+
+            rule.maxOccupancy = 1;
+        }
+
+        if (rule.maxAdults > rule.maxOccupancy) {
+
+            rule.maxAdults = rule.maxOccupancy;
+        }
+
+        if (rule.maxChildren > rule.maxOccupancy) {
+
+            rule.maxChildren = rule.maxOccupancy;
+        }
+
+        if (rule.defaultAdults > rule.maxAdults) {
+
+            rule.defaultAdults = rule.maxAdults;
+        }
+
+        if (rule.defaultAdults < 1) {
+
+            rule.defaultAdults = 1;
+        }
+
+        saveDatabase();
+
+        return true;
+
+    },
+
+    /* ---------- Rooms ---------- */
+
     getRoomNumbers() {
 
         return Object
@@ -270,8 +423,7 @@ const RoomMasterRepository = {
 
     getCategory(roomNo) {
 
-        const room =
-            normalizeRoomNumber(roomNo);
+        const room = normalizeRoomNumber(roomNo);
 
         if (!room) return "";
 
@@ -281,8 +433,7 @@ const RoomMasterRepository = {
 
     setRoom(roomNo, category) {
 
-        const room =
-            normalizeRoomNumber(roomNo);
+        const room = normalizeRoomNumber(roomNo);
 
         if (!room) return false;
 
@@ -319,8 +470,7 @@ const RoomMasterRepository = {
 
         const master = ensureRoomMaster();
 
-        const room =
-            normalizeRoomNumber(roomNo);
+        const room = normalizeRoomNumber(roomNo);
 
         if (!(room in master.rooms)) return false;
 
@@ -343,6 +493,24 @@ const RoomMasterRepository = {
     totalRooms() {
 
         return this.getRoomNumbers().length;
+
+    },
+
+    totalBeds() {
+
+        const master = ensureRoomMaster();
+
+        let beds = 0;
+
+        Object.values(master.rooms).forEach(category => {
+
+            if (!category) return;
+
+            beds += this.getRule(category).maxOccupancy;
+
+        });
+
+        return beds;
 
     },
 
@@ -377,9 +545,9 @@ const RoomMasterRepository = {
 
 
 /* =====================================================
-   GLOBAL CATEGORY LOOKUP
+   GLOBAL LOOKUPS
 
-   Used by the register, printing and reports.
+   Used by the register, reports and validation.
 ===================================================== */
 
 function getRoomCategory(roomNo) {
@@ -389,9 +557,15 @@ function getRoomCategory(roomNo) {
 }
 
 
-/* =====================================================
-   ROOM MASTER VALIDATION
-===================================================== */
+function getRoomOccupancyRule(roomNo) {
+
+    const category =
+        RoomMasterRepository.getCategory(roomNo);
+
+    return RoomMasterRepository.getRule(category);
+
+}
+
 
 function roomMasterHasRooms() {
 
@@ -409,6 +583,7 @@ function isRoomInMaster(roomNo) {
     return room in ensureRoomMaster().rooms;
 
 }
+
 
 /* =====================================================
    CATEGORY ACTIONS
@@ -496,6 +671,25 @@ function deleteRoomCategory(name) {
 }
 
 
+function changeCategoryRule(category, field, value) {
+
+    RoomMasterRepository.setRuleField(
+        category,
+        field,
+        value
+    );
+
+    renderRoomMaster();
+
+    /* Register validation depends on these numbers */
+
+    if (typeof refreshRegisterViews === "function") {
+
+        refreshRegisterViews();
+    }
+}
+
+
 /* =====================================================
    ROOM ACTIONS
 ===================================================== */
@@ -523,13 +717,10 @@ function addRoomsToMaster() {
         return;
     }
 
-    const category =
-        categoryInput?.value || "";
-
     const added =
         RoomMasterRepository.setRoomsSilently(
             rooms,
-            category
+            categoryInput?.value || ""
         );
 
     roomInput.value = "";
@@ -548,6 +739,11 @@ function changeRoomCategory(roomNo, category) {
     RoomMasterRepository.setRoom(roomNo, category);
 
     renderRoomMasterSummary();
+
+    if (typeof refreshRegisterViews === "function") {
+
+        refreshRegisterViews();
+    }
 }
 
 
@@ -589,8 +785,6 @@ function clearRoomMaster() {
 
    One line per entry:
        101-110,Deluxe
-       201-206,Super Deluxe
-       301,Suite
 ===================================================== */
 
 function processRoomMasterBulk() {
@@ -618,8 +812,6 @@ function processRoomMasterBulk() {
 
         const parts = line.split(",");
 
-        /* Category is the LAST field, rooms are the rest */
-
         const category =
             (parts.length > 1
                 ? parts[parts.length - 1]
@@ -627,10 +819,9 @@ function processRoomMasterBulk() {
             ).trim();
 
         const roomText =
-            (parts.length > 1
+            parts.length > 1
                 ? parts.slice(0, -1).join(",")
-                : parts[0]
-            );
+                : parts[0];
 
         const rooms = parseRoomList(roomText);
 
@@ -666,8 +857,24 @@ function processRoomMasterBulk() {
 
 
 /* =====================================================
-   RENDER : CATEGORY LIST
+   RENDER : CATEGORY TABLE
 ===================================================== */
+
+function buildRuleInput(category, field, value) {
+
+    const safe = category.replace(/'/g, "\\'");
+
+    return `
+    <input
+        type="number"
+        class="rule-input"
+        min="0"
+        max="20"
+        value="${value}"
+        onchange="changeCategoryRule('${safe}','${field}',this.value)">
+    `;
+}
+
 
 function renderCategoryList() {
 
@@ -687,7 +894,7 @@ function renderCategoryList() {
     if (categories.length === 0) {
 
         body.innerHTML =
-            `<tr><td colspan="3">
+            `<tr><td colspan="7">
                 No categories yet. Add one above.
             </td></tr>`;
 
@@ -696,8 +903,10 @@ function renderCategoryList() {
 
     categories.forEach(name => {
 
-        const safe =
-            name.replace(/'/g, "\\'");
+        const rule =
+            RoomMasterRepository.getRule(name);
+
+        const safe = name.replace(/'/g, "\\'");
 
         body.insertAdjacentHTML(
 
@@ -706,9 +915,17 @@ function renderCategoryList() {
             `
 <tr>
 
-    <td>${name}</td>
+    <td><strong>${name}</strong></td>
 
     <td>${counts[name] || 0}</td>
+
+    <td>${buildRuleInput(name,"defaultAdults",rule.defaultAdults)}</td>
+
+    <td>${buildRuleInput(name,"maxAdults",rule.maxAdults)}</td>
+
+    <td>${buildRuleInput(name,"maxChildren",rule.maxChildren)}</td>
+
+    <td>${buildRuleInput(name,"maxOccupancy",rule.maxOccupancy)}</td>
 
     <td>
         <button onclick="renameRoomCategory('${safe}')">
@@ -805,7 +1022,7 @@ function renderRoomInventory() {
     if (rooms.length === 0) {
 
         body.innerHTML =
-            `<tr><td colspan="3">
+            `<tr><td colspan="4">
                 No rooms in inventory.
             </td></tr>`;
 
@@ -831,6 +1048,16 @@ function renderRoomInventory() {
 
         });
 
+        const rule =
+            RoomMasterRepository.getRule(current);
+
+        const capacity =
+            current
+                ? rule.defaultAdults +
+                  " default · max " +
+                  rule.maxOccupancy
+                : "—";
+
         body.insertAdjacentHTML(
 
             "beforeend",
@@ -845,6 +1072,8 @@ function renderRoomInventory() {
             ${options}
         </select>
     </td>
+
+    <td class="capacity-cell">${capacity}</td>
 
     <td>
         <button onclick="deleteRoomFromMaster('${room}')">
@@ -895,6 +1124,9 @@ function renderRoomMasterSummary() {
 
             const count = counts[name] || 0;
 
+            const rule =
+                RoomMasterRepository.getRule(name);
+
             const percent =
                 total > 0
                     ? Math.round((count / total) * 100)
@@ -904,7 +1136,9 @@ function renderRoomMasterSummary() {
             <div class="summary-card">
                 <div>${name}</div>
                 <strong>${count}</strong>
-                <div class="muted-note">${percent}%</div>
+                <div class="muted-note">
+                    ${percent}% · sleeps ${rule.maxOccupancy}
+                </div>
             </div>
             `;
 
@@ -927,7 +1161,9 @@ function renderRoomMasterSummary() {
     <div class="summary-card total-card">
         <div>Total Inventory</div>
         <strong>${total}</strong>
-        <div class="muted-note">rooms</div>
+        <div class="muted-note">
+            ${RoomMasterRepository.totalBeds()} beds
+        </div>
     </div>
     `;
 

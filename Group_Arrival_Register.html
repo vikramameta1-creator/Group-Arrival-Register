@@ -1,12 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0">
+
     <title>Hotel Group Operations Suite</title>
+
+    <link rel="icon" href="data:,">
+
     <link rel="stylesheet" href="css/style.css">
+
 </head>
-<body>
 
 <body>
 
@@ -26,17 +35,11 @@
         <div>
 
             <h1 id="hotelTitle">
-
                 Hotel Group Operations Suite
-
             </h1>
 
-            <div
-                class="header-subtitle"
-                id="hotelSubtitle">
-
-                Arrival & Rooming Management
-
+            <div class="header-subtitle" id="hotelSubtitle">
+                Arrival &amp; Rooming Management
             </div>
 
         </div>
@@ -45,15 +48,12 @@
 
     <div class="header-right">
 
-        <div id="currentDateTime">
-
-            --
-
-        </div>
+        <div id="currentDateTime">--</div>
 
     </div>
 
 </header>
+
 
 <!-- =====================================================
      MAIN NAVIGATION
@@ -61,47 +61,32 @@
 
 <nav class="top-nav">
 
-    <button
-        class="tab-btn active"
-        data-tab="dashboardPage">
-
+    <button class="tab-btn active" data-tab="dashboardPage">
         Dashboard
-
     </button>
 
-    <button
-        class="tab-btn"
-        data-tab="arrivalPage">
-
+    <button class="tab-btn" data-tab="arrivalPage">
         Arrival Register
-
     </button>
 
-    <button
-        class="tab-btn"
-        data-tab="roomingPage">
-
+    <button class="tab-btn" data-tab="roomingPage">
         Rooming List
-
     </button>
 
-    <button
-        class="tab-btn"
-        data-tab="reportsPage">
+    <button class="tab-btn" data-tab="roomMasterPage">
+        Room Master
+    </button>
 
+    <button class="tab-btn" data-tab="reportsPage">
         Reports
-
     </button>
 
-    <button
-        class="tab-btn"
-        data-tab="settingsPage">
-
+    <button class="tab-btn" data-tab="settingsPage">
         Settings
-
     </button>
 
 </nav>
+
 
 <!-- =====================================================
      MAIN CONTENT
@@ -109,233 +94,174 @@
 
 <main class="main-container">
 
+
 <!-- =====================================================
-     DASHBOARD
+     UNSAVED DRAFT BANNER
 ===================================================== -->
 
-<section
-    id="dashboardPage"
-    class="page active-page">
+<div id="draftBanner" class="draft-banner" style="display:none;">
 
-<div class="page-title">
+    <span>
+        <strong>Unsaved draft restored.</strong>
+        This register was recovered from your last session
+        and has not been saved as a group.
+    </span>
 
-    <h2>
+    <span class="draft-banner-actions">
 
-        Dashboard
+        <button onclick="keepDraft()">Keep</button>
 
-    </h2>
+        <button class="danger" onclick="discardDraft()">Discard</button>
+
+    </span>
 
 </div>
 
-<!-- ===========================================
-     KPI CARDS
-=========================================== -->
 
-<div class="dashboard-cards">
+<!-- =====================================================
+     PAGE : DASHBOARD
+===================================================== -->
 
-    <div class="dashboard-card">
+<section id="dashboardPage" class="page active-page">
 
-        <div class="card-title">
+    <div class="page-title">
+        <h2>Dashboard</h2>
+    </div>
 
-            Total Groups
+    <!-- ---------- KPI CARDS ---------- -->
+
+    <div class="dashboard-cards">
+
+        <div class="dashboard-card">
+            <div class="card-title">Total Groups</div>
+            <div class="card-value" id="dashboardTotalGroups">0</div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="card-title">Total Rooms</div>
+            <div class="card-value" id="dashboardTotalRooms">0</div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="card-title">Total Guests</div>
+            <div class="card-value" id="dashboardTotalPax">0</div>
+        </div>
+
+        <div class="dashboard-card">
+            <div class="card-title">Today's Arrivals</div>
+            <div class="card-value" id="dashboardTodayArrivals">0</div>
+        </div>
+
+    </div>
+
+    <!-- ---------- ARRIVALS ROW ---------- -->
+
+    <div class="dashboard-row">
+
+        <div class="dashboard-panel">
+
+            <h3>Today's Arrivals</h3>
+
+            <div
+                id="todayArrivalCards"
+                class="arrival-card-container"></div>
 
         </div>
 
-        <div
-            class="card-value"
-            id="dashboardTotalGroups">
+        <div class="dashboard-panel">
 
-            0
+            <h3>Tomorrow's Arrivals</h3>
+
+            <div
+                id="tomorrowArrivalCards"
+                class="arrival-card-container"></div>
 
         </div>
 
     </div>
 
-    <div class="dashboard-card">
+    <!-- ---------- CONTROL ROW ---------- -->
 
-        <div class="card-title">
+    <div class="dashboard-row">
 
-            Total Rooms
+        <div class="dashboard-panel">
+
+            <h3>Arrival Control Center</h3>
+
+            <table class="data-table">
+
+                <tbody>
+
+                    <tr>
+                        <td>Pending</td>
+                        <td id="dashboardPending">0</td>
+                    </tr>
+
+                    <tr>
+                        <td>Confirmed</td>
+                        <td id="dashboardConfirmed">0</td>
+                    </tr>
+
+                    <tr>
+                        <td>Checked In</td>
+                        <td id="dashboardCheckedIn">0</td>
+                    </tr>
+
+                    <tr>
+                        <td>Cancelled</td>
+                        <td id="dashboardCancelled">0</td>
+                    </tr>
+
+                    <tr>
+                        <td>VIP Guests</td>
+                        <td id="dashboardVIP">0</td>
+                    </tr>
+
+                    <tr>
+                        <td>Meal Covers</td>
+                        <td id="dashboardMeals">0</td>
+                    </tr>
+
+                    <tr>
+                        <td>Allocated Rooms</td>
+                        <td id="dashboardAllocated">0</td>
+                    </tr>
+
+                </tbody>
+
+            </table>
 
         </div>
 
-        <div
-            class="card-value"
-            id="dashboardTotalRooms">
+        <div class="dashboard-panel">
 
-            0
+            <h3>Quick Actions</h3>
+
+            <div class="quick-actions">
+
+                <button onclick="switchPage('arrivalPage')">
+                    ➕ New Group
+                </button>
+
+                <button onclick="printBlankRegister()">
+                    🖨 Blank Register
+                </button>
+
+                <button onclick="switchPage('roomMasterPage')">
+                    🗝 Room Master
+                </button>
+
+                <button onclick="switchPage('reportsPage')">
+                    📊 Reports
+                </button>
+
+            </div>
 
         </div>
 
     </div>
 
-    <div class="dashboard-card">
-
-        <div class="card-title">
-
-            Total Guests
-
-        </div>
-
-        <div
-            class="card-value"
-            id="dashboardTotalPax">
-
-            0
-
-        </div>
-
-    </div>
-
-    <div class="dashboard-card">
-
-        <div class="card-title">
-
-            Today's Arrivals
-
-        </div>
-
-        <div
-            class="card-value"
-            id="dashboardTodayArrivals">
-
-            0
-
-        </div>
-
-    </div>
-
-</div>
-
-<!-- ===========================================
-     DASHBOARD GRID
-=========================================== -->
-
-<div class="dashboard-row">
-    <!-- ===========================================
-     ARRIVAL CONTROL CENTER
-=========================================== -->
-
-<div class="dashboard-panel">
-
-    <h3>Arrival Control Center</h3>
-
-    <table class="data-table">
-
-        <tbody>
-
-            <tr>
-                <td>Pending</td>
-                <td id="dashboardPending">0</td>
-            </tr>
-
-            <tr>
-                <td>Confirmed</td>
-                <td id="dashboardConfirmed">0</td>
-            </tr>
-
-            <tr>
-                <td>Checked In</td>
-                <td id="dashboardCheckedIn">0</td>
-            </tr>
-
-            <tr>
-                <td>Cancelled</td>
-                <td id="dashboardCancelled">0</td>
-            </tr>
-
-            <tr>
-                <td>VIP Guests</td>
-                <td id="dashboardVIP">0</td>
-            </tr>
-
-            <tr>
-                <td>Meal Covers</td>
-                <td id="dashboardMeals">0</td>
-            </tr>
-
-            <tr>
-                <td>Allocated Rooms</td>
-                <td id="dashboardAllocated">0</td>
-            </tr>
-
-        </tbody>
-
-    </table>
-
-</div>
-
-<!-- ===========================================
-     TODAY'S ARRIVALS
-=========================================== -->
-
-<div class="dashboard-panel">
-
-    <h3>Today's Arrivals</h3>
-
-    <div id="todayArrivalCards" class="arrival-card-container">
-
-</div>
-
-        <thead>
-
-            <tr>
-
-                <th>Group</th>
-
-                <th>Rooms</th>
-
-                <th>Status</th>
-
-            </tr>
-
-        </thead>
-
-        <tbody id="todayArrivalList">
-
-        </tbody>
-
-    </table>
-
-</div>
-
-</div>
-
-<!-- ===========================================
-     SECOND DASHBOARD ROW
-=========================================== -->
-
-<div class="dashboard-row">
-
-    <div class="dashboard-panel">
-
-        <h3>Tomorrow's Arrivals</h3>
-
-        <div id="tomorrowArrivalCards" class="arrival-card-container">
-
-</div>
-
-            <thead>
-
-                <tr>
-
-                    <th>Group</th>
-
-                    <th>Rooms</th>
-
-                    <th>Status</th>
-
-                </tr>
-
-            </thead>
-
-            <tbody id="tomorrowArrivalList">
-
-            </tbody>
-
-        </table>
-
-    </div>
+    <!-- ---------- SAVED GROUPS ---------- -->
 
     <div class="dashboard-panel">
 
@@ -343,471 +269,314 @@
 
         <div class="saved-groups-toolbar">
 
+            <label class="sr-label" for="groupSearch">
+                Search saved groups
+            </label>
+
             <input
                 type="text"
                 id="groupSearch"
-                placeholder="Search Group..."
-                oninput="renderSavedGroups()">
+                placeholder="🔍  Search group name...">
 
         </div>
 
-        <table
-            id="savedGroupsTable"
-            class="data-table">
+        <div class="table-container">
 
-            <thead>
+            <table id="savedGroupsTable" class="data-table">
 
-                <tr>
+                <thead>
 
-                    <th>Group</th>
+                    <tr>
+                        <th>Group</th>
+                        <th>Arrival</th>
+                        <th>Status</th>
+                        <th>Rooms</th>
+                        <th>Action</th>
+                    </tr>
 
-                    <th>Arrival</th>
+                </thead>
 
-                    <th>Status</th>
+                <tbody id="savedGroupsBody"></tbody>
 
-                    <th>Rooms</th>
+            </table>
 
-                    <th>Action</th>
-
-                </tr>
-
-            </thead>
-
-            <tbody id="savedGroupsBody">
-
-            </tbody>
-
-        </table>
+        </div>
 
     </div>
-
-</div>
-
-<!-- ===========================================
-     QUICK ACTIONS
-=========================================== -->
-
-<div class="dashboard-panel">
-
-    <h3>Quick Actions</h3>
-
-    <div class="quick-actions">
-
-        <button onclick="switchPage('arrivalPage')">
-
-            ➕ New Group
-
-        </button>
-
-        <button onclick="printBlankRegister()">
-
-            🖨 Blank Register
-
-        </button>
-
-        <button onclick="switchPage('roomingPage')">
-
-            🏨 Rooming List
-
-        </button>
-
-        <button onclick="switchPage('reportsPage')">
-
-            📊 Reports
-
-        </button>
-
-    </div>
-
-</div>
 
 </section>
-    
-      
-       <!-- =====================================================
-     ARRIVAL REGISTER
+
+
+<!-- =====================================================
+     PAGE : ARRIVAL REGISTER
 ===================================================== -->
 
 <section id="arrivalPage" class="page">
 
     <div class="page-title">
-
-        <h2>
-
-            Arrival Register
-
-        </h2>
-
+        <h2>Arrival Register</h2>
     </div>
 
-    <!-- ===========================================
-         GROUP INFORMATION
-    ============================================ -->
+    <!-- ---------- GROUP HEADER ---------- -->
 
-    <div class="group-info-grid">
+    <div class="group-header">
 
-        <div class="form-group">
+        <div class="group-info-grid compact">
 
-            <label>Status</label>
+            <div class="form-group">
 
-            <select id="groupStatus">
+                <label for="groupStatus">Status</label>
 
-                <option value="Pending">Pending</option>
+                <select id="groupStatus">
+                    <option value="Pending">Pending</option>
+                    <option value="Confirmed">Confirmed</option>
+                    <option value="Arrived">Arrived</option>
+                    <option value="Checked In">Checked In</option>
+                    <option value="Checked Out">Checked Out</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
 
-                <option value="Confirmed">Confirmed</option>
+            </div>
 
-                <option value="Arrived">Arrived</option>
+            <div class="form-group">
+                <label for="groupName">Group Name</label>
+                <input type="text" id="groupName">
+            </div>
 
-                <option value="Checked In">Checked In</option>
+            <div class="form-group">
+                <label for="arrivalDate">Arrival Date</label>
+                <input type="date" id="arrivalDate">
+            </div>
 
-                <option value="Checked Out">Checked Out</option>
+            <div class="form-group">
+                <label for="agentCompany">Agent / Company</label>
+                <input type="text" id="agentCompany">
+            </div>
 
-                <option value="Cancelled">Cancelled</option>
-
-            </select>
-
-        </div>
-
-        <div class="form-group">
-
-            <label>Group Name</label>
-
-            <input
-                type="text"
-                id="groupName">
-
-        </div>
-
-        <div class="form-group">
-
-            <label>Arrival Date</label>
-
-            <input
-                type="date"
-                id="arrivalDate">
+            <div class="form-group">
+                <label for="preparedBy">Prepared By</label>
+                <input type="text" id="preparedBy">
+            </div>
 
         </div>
 
-        <div class="form-group">
+        <div class="collapse-panel" id="notesPanel">
 
-            <label>Agent / Company</label>
-
-            <input
-                type="text"
-                id="agentCompany">
-
-        </div>
-
-        <div class="form-group">
-
-            <label>Prepared By</label>
-
-            <input
-                type="text"
-                id="preparedBy">
-
-        </div>
-
-        <div class="form-group full-width">
-
-            <label>Notes</label>
-
-            <textarea
-                id="groupNotes"
-                rows="3"></textarea>
+            <div class="form-group">
+                <label for="groupNotes">Notes</label>
+                <textarea id="groupNotes" rows="3"></textarea>
+            </div>
 
         </div>
 
     </div>
 
-    <!-- ===========================================
-         ACTION BAR
-    ============================================ -->
+    <!-- ---------- TOOLBAR ---------- -->
 
-    <div class="action-bar">
+    <div class="register-toolbar">
 
-        <input
-            type="number"
-            id="roomCount"
-            placeholder="No. of Rooms"
-            min="1">
+        <div class="toolbar-set">
 
-        <button id="btnGenerateRows">
+            <input
+                type="number"
+                id="roomCount"
+                placeholder="Rooms"
+                min="1">
 
-            Generate Rows
+            <button id="btnGenerateRows">Generate</button>
 
-        </button>
+            <button id="btnAddRow">+ Row</button>
 
-        <button id="btnAddRow">
+            <button onclick="autoGenerateRoomSeries()">Auto Series</button>
 
-            Add Row
+            <button onclick="sortRooms()">Sort</button>
 
-        </button>
+            <button onclick="clearRegister()">Clear</button>
 
-        <button id="btnBulkImport">
+        </div>
 
-            Bulk Import
+        <div class="toolbar-set">
 
-        </button>
+            <button id="btnSaveGroup" class="primary-action">Save Group</button>
 
-        <button id="btnSaveGroup">
+            <button id="btnOpenGroup">Open</button>
 
-            Save Group
+            <button id="btnExportJson">JSON</button>
 
-        </button>
+            <button onclick="exportCSV()">CSV</button>
 
-        <button id="btnOpenGroup">
+            <input
+                type="file"
+                id="openGroupFile"
+                accept=".json"
+                hidden>
 
-            Open Group
+        </div>
 
-        </button>
+        <div class="toolbar-set">
 
-        <button id="btnExportJson">
+            <button id="btnPrintRegister">Print</button>
 
-            Export JSON
+            <button id="btnPrintBlank">Blank</button>
 
-        </button>
+            <button onclick="showValidationReport()">Duplicates</button>
 
-        <button id="btnPrintRegister">
+            <button onclick="showMealAnalytics()">Meals</button>
 
-            Print Register
+        </div>
 
-        </button>
+        <div class="toolbar-set toolbar-toggles">
 
-        <button id="btnPrintBlank">
+            <button
+                id="btnToggleNotes"
+                class="toggle-button"
+                onclick="toggleNotes()">&#9662; Notes</button>
 
-            Blank Register
+            <button
+                id="btnToggleBulkImport"
+                class="toggle-button"
+                onclick="toggleBulkImport()">&#9662; Bulk Import</button>
 
-        </button>
-
-        <button onclick="sortRooms()">
-
-            Sort Rooms
-
-        </button>
-
-        <button onclick="exportCSV()">
-
-            Export CSV
-
-        </button>
-
-        <button onclick="clearRegister()">
-
-            Clear Register
-
-        </button>
-
-        <input
-            type="file"
-            id="openGroupFile"
-            accept=".json"
-            hidden>
+        </div>
 
     </div>
 
-    <!-- ===========================================
-         BULK IMPORT
-    ============================================ -->
+    <!-- ---------- BULK IMPORT ---------- -->
 
-    <div
-        class="bulk-import-panel"
-        id="bulkImportPanel">
+    <div class="collapse-panel bulk-import-panel" id="bulkImportPanel">
 
-        <h3>
-
-            Bulk Import
-
-        </h3>
-
-        <p>
-
-            Format:
-
-            Room,Name,Pax,Meal
-
+        <p class="muted-note">
+            One room per line &nbsp;&mdash;&nbsp;
+            <code>Room,Guest Name,Pax,Meal</code>
+            &nbsp;&nbsp; Importing replaces all current rows.
         </p>
 
+        <label class="sr-label" for="bulkImportText">
+            Bulk import data
+        </label>
+
         <textarea
-
             id="bulkImportText"
+            rows="5"
+            placeholder="101,John Smith,2,CP&#10;102,Anita Rao,1,MAP"></textarea>
 
-            rows="6"
-
-            placeholder="101,John Smith,2,CP">
-
-        </textarea>
-
-        <button id="btnProcessImport">
-
-            Import Data
-
-        </button>
+        <button id="btnProcessImport">Import Data</button>
 
     </div>
 
-    <!-- ===========================================
-         ARRIVAL REGISTER TABLE
-    ============================================ -->
+    <!-- ---------- REGISTER TABLE ---------- -->
 
-    <div class="table-container">
+    <div class="table-container register-scroll">
 
         <table
-
             id="arrivalRegisterTable"
-
             class="data-table register-table">
 
             <thead>
 
                 <tr>
-
                     <th>Sr</th>
-
                     <th>Room</th>
-
+                    <th>Category</th>
                     <th>Guest Name</th>
-
                     <th>Pax</th>
-
                     <th>Meal</th>
-
                     <th>Mobile</th>
-
-                    <th>Signature</th>
-
+                    <th>VIP / Special Request</th>
                 </tr>
 
             </thead>
 
-            <tbody id="arrivalRegisterBody">
-
-            </tbody>
+            <tbody id="arrivalRegisterBody"></tbody>
 
         </table>
 
     </div>
 
-    <!-- ===========================================
-         REGISTER SUMMARY
-    ============================================ -->
+    <!-- ---------- SUMMARY ---------- -->
 
     <div class="summary-grid">
 
         <div class="summary-card">
-
             <div>Total Rooms</div>
-
             <strong id="summaryRooms">0</strong>
-
         </div>
 
         <div class="summary-card">
-
             <div>Total Pax</div>
-
             <strong id="summaryPax">0</strong>
-
         </div>
 
         <div class="summary-card">
-
             <div>EP</div>
-
             <strong id="summaryEP">0</strong>
-
         </div>
 
         <div class="summary-card">
-
             <div>CP</div>
-
             <strong id="summaryCP">0</strong>
-
         </div>
 
         <div class="summary-card">
-
             <div>MAP</div>
-
             <strong id="summaryMAP">0</strong>
-
         </div>
 
         <div class="summary-card">
-
             <div>AP</div>
-
             <strong id="summaryAP">0</strong>
-
         </div>
 
     </div>
 
 </section>
+
+
 <!-- =====================================================
-     ROOMING LIST
+     PAGE : ROOMING LIST
 ===================================================== -->
 
 <section id="roomingPage" class="page">
 
     <div class="page-title">
-
-        <h2>
-
-            Rooming List
-
-        </h2>
-
+        <h2>Rooming List</h2>
     </div>
+
+    <p class="muted-note">
+        Generated automatically from the Arrival Register.
+        Edit rows on the Arrival Register page.
+    </p>
 
     <div class="action-bar">
 
-        <button id="btnPrintRoomingList">
+        <button onclick="sortRooms()">Sort by Room</button>
 
-            Print Rooming List
+        <button id="btnPrintRoomingList">Print Rooming List</button>
 
-        </button>
-
-        <button id="btnExportRoomingList">
-
-            Export Rooming List
-
-        </button>
+        <button id="btnExportRoomingList">Export Rooming List (CSV)</button>
 
     </div>
 
     <div class="table-container">
 
-        <table
-            id="roomingListTable"
-            class="data-table">
+        <table id="roomingListTable" class="data-table">
 
             <thead>
 
                 <tr>
-
                     <th>Room</th>
-
+                    <th>Category</th>
                     <th>Guest Name</th>
-
                     <th>Pax</th>
-
                     <th>Meal</th>
-
                     <th>Mobile</th>
-
                     <th>VIP</th>
-
                     <th>Special Request</th>
-
                 </tr>
 
             </thead>
 
-            <tbody id="roomingListBody">
-
-            </tbody>
+            <tbody id="roomingListBody"></tbody>
 
         </table>
 
@@ -815,142 +584,401 @@
 
 </section>
 
+
 <!-- =====================================================
-     REPORTS
+     PAGE : ROOM MASTER
+===================================================== -->
+
+<section id="roomMasterPage" class="page">
+
+    <div class="page-title">
+        <h2>Room Master</h2>
+    </div>
+
+    <p class="muted-note">
+        Map every room in the hotel to a category.
+        Categories appear on screen in the Arrival Register
+        and Rooming List, and drive occupancy in Reports.
+        They are never printed.
+    </p>
+
+    <div id="roomMasterSummary"></div>
+
+    <div class="dashboard-row">
+
+        <!-- ---------- CATEGORIES ---------- -->
+
+        <div class="dashboard-panel">
+
+            <h3>Categories</h3>
+
+            <div class="action-bar">
+
+                <input
+                    type="text"
+                    id="newCategoryName"
+                    placeholder="e.g. Deluxe">
+
+                <button id="btnAddCategory">Add Category</button>
+
+            </div>
+
+            <div class="table-container">
+
+                <table class="data-table">
+
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Rooms</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="categoryListBody"></tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+        <!-- ---------- ADD ROOMS ---------- -->
+
+        <div class="dashboard-panel">
+
+            <h3>Add Rooms</h3>
+
+            <p class="muted-note">
+                Single room, a range, or a list.<br>
+                <code>101</code> &nbsp;
+                <code>101-110</code> &nbsp;
+                <code>101,105,107-109</code>
+            </p>
+
+            <div class="action-bar">
+
+                <input
+                    type="text"
+                    id="newRoomNumbers"
+                    placeholder="101-110">
+
+                <select id="newRoomCategory">
+                    <option value="">Unassigned</option>
+                </select>
+
+                <button id="btnAddRooms">Add Rooms</button>
+
+            </div>
+
+            <h3 style="margin-top:20px;">Bulk Setup</h3>
+
+            <p class="muted-note">
+                One line per entry &nbsp;—&nbsp;
+                <code>Rooms,Category</code>.
+                Missing categories are created automatically.
+            </p>
+
+            <textarea
+                id="roomMasterBulkText"
+                rows="5"
+                placeholder="101-110,Deluxe&#10;201-206,Super Deluxe&#10;301,Suite"></textarea>
+
+            <div class="action-bar">
+
+                <button id="btnRoomMasterBulk">Import Rooms</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ---------- INVENTORY ---------- -->
+
+    <div class="dashboard-panel">
+
+        <h3>Room Inventory</h3>
+
+        <div class="saved-groups-toolbar">
+
+            <label class="sr-label" for="roomMasterSearch">
+                Search rooms
+            </label>
+
+            <input
+                type="text"
+                id="roomMasterSearch"
+                placeholder="🔍  Search room number or category...">
+
+        </div>
+
+        <div class="table-container">
+
+            <table class="data-table">
+
+                <thead>
+                    <tr>
+                        <th>Room</th>
+                        <th>Category</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+
+                <tbody id="roomInventoryBody"></tbody>
+
+            </table>
+
+        </div>
+
+        <div class="action-bar" style="margin-top:15px;">
+
+            <button id="btnClearRoomMaster">Clear All Rooms</button>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =====================================================
+     PAGE : REPORTS
 ===================================================== -->
 
 <section id="reportsPage" class="page">
 
     <div class="page-title">
+        <h2>Reports</h2>
+    </div>
 
-        <h2>
+    <div class="report-scope">
 
-            Reports
+        <div class="scope-switch">
 
-        </h2>
+            <button class="scope-btn active" data-scope="current">
+                Current Group
+            </button>
+
+            <button class="scope-btn" data-scope="all">
+                All Groups
+            </button>
+
+        </div>
+
+        <span class="muted-note" id="reportScopeLabel">
+            Showing the group open in the Arrival Register
+        </span>
+
+    </div>
+
+    <div
+        class="dashboard-panel report-filter-panel"
+        id="reportFilters"
+        style="display:none;">
+
+        <h3>Filters</h3>
+
+        <div class="filter-grid">
+
+            <div class="form-group">
+                <label for="reportFilterFrom">Arrival From</label>
+                <input type="date" id="reportFilterFrom">
+            </div>
+
+            <div class="form-group">
+                <label for="reportFilterTo">Arrival To</label>
+                <input type="date" id="reportFilterTo">
+            </div>
+
+            <div class="form-group">
+                <label for="reportFilterStatus">Status</label>
+                <select id="reportFilterStatus">
+                    <option value="">All Statuses</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Confirmed">Confirmed</option>
+                    <option value="Arrived">Arrived</option>
+                    <option value="Checked In">Checked In</option>
+                    <option value="Checked Out">Checked Out</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="reportFilterAgent">Agent / Company</label>
+                <select id="reportFilterAgent">
+                    <option value="">All Agents</option>
+                </select>
+            </div>
+
+            <div class="form-group filter-action">
+                <button id="btnClearReportFilters">
+                    Clear Filters
+                </button>
+            </div>
+
+        </div>
+
+        <p class="muted-note">
+            Groups with no arrival date are excluded once a
+            date filter is set.
+        </p>
 
     </div>
 
     <div class="reports-grid">
 
         <div class="report-card">
-
-            <h3>
-
-                Arrival Summary
-
-            </h3>
-
-            <div id="reportArrivalSummary">
-
-                No Data
-
-            </div>
-
+            <h3>Arrival Summary</h3>
+            <div id="reportArrivalSummary"></div>
         </div>
 
         <div class="report-card">
-
-            <h3>
-
-                Meal Summary
-
-            </h3>
-
-            <div id="reportMealSummary">
-
-                No Data
-
-            </div>
-
+            <h3>Meal Summary</h3>
+            <div id="reportMealSummary"></div>
         </div>
 
         <div class="report-card">
+            <h3>Occupancy Summary</h3>
+            <div id="reportOccupancySummary"></div>
+        </div>
 
-            <h3>
-
-                Occupancy Summary
-
-            </h3>
-
-            <div id="reportOccupancySummary">
-
-                No Data
-
-            </div>
-
+        <div class="report-card">
+            <h3>Room Category</h3>
+            <div id="reportCategorySummary"></div>
         </div>
 
     </div>
 
 </section>
 
+
 <!-- =====================================================
-     SETTINGS
+     PAGE : SETTINGS
 ===================================================== -->
 
 <section id="settingsPage" class="page">
 
     <div class="page-title">
-
-        <h2>
-
-            Settings
-
-        </h2>
-
+        <h2>Settings</h2>
     </div>
 
     <div class="settings-grid">
 
-        <div class="form-group">
+        <!-- ---------- BRANDING ---------- -->
 
-            <label>
+        <div class="dashboard-panel">
 
-                Hotel Name
+            <h3>Branding</h3>
 
-            </label>
+            <div class="form-group">
+                <label for="settingHotelName">Hotel Name</label>
+                <input type="text" id="settingHotelName">
+            </div>
 
-            <input
-                type="text"
-                id="settingHotelName">
+            <div class="form-group">
+                <label for="settingHotelLogo">Hotel Logo</label>
+                <input
+                    type="file"
+                    id="settingHotelLogo"
+                    accept="image/*">
+            </div>
 
-        </div>
+            <div class="form-group">
+                <label for="settingFooterText">Footer Text</label>
+                <textarea id="settingFooterText" rows="3"></textarea>
+            </div>
 
-        <div class="form-group">
-
-            <label>
-
-                Hotel Logo
-
-            </label>
-
-            <input
-                type="file"
-                id="settingHotelLogo"
-                accept="image/*">
-
-        </div>
-
-        <div class="form-group full-width">
-
-            <label>
-
-                Footer Text
-
-            </label>
-
-            <textarea
-                id="settingFooterText"
-                rows="4"></textarea>
+            <div class="action-bar">
+                <button id="btnSaveSettings">Save Settings</button>
+            </div>
 
         </div>
 
-        <button id="btnSaveSettings">
+        <!-- ---------- REGISTER RULES ---------- -->
 
-            Save Settings
+        <div class="dashboard-panel">
 
-        </button>
+            <h3>Register Rules</h3>
+
+            <p class="muted-note">
+                Numeric mode accepts digits only, maximum
+                3 characters (001&ndash;999). Turn this off
+                for room names or letters such as
+                <code>A101</code> or <code>PH-1</code>.
+            </p>
+
+            <label class="toggle-row" for="settingRoomNumbersOnly">
+
+                <input
+                    type="checkbox"
+                    id="settingRoomNumbersOnly"
+                    class="toggle-input"
+                    checked>
+
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+
+                <span class="toggle-text">Room numbers are numeric only</span>
+
+            </label>
+
+            <label class="toggle-row" for="settingRestrictRooms">
+
+                <input
+                    type="checkbox"
+                    id="settingRestrictRooms"
+                    class="toggle-input"
+                    checked>
+
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+
+                <span class="toggle-text">
+                    Only allow rooms from the Room Master
+                </span>
+
+            </label>
+
+            <p class="muted-note">
+                Pax accepts up to 2 digits.
+                Mobile accepts digits, <code>+</code>,
+                <code>-</code> and spaces, up to 15 characters.
+                Both switches apply immediately.
+            </p>
+
+        </div>
+
+        <!-- ---------- DATA BACKUP ---------- -->
+
+        <div class="dashboard-panel">
+
+            <h3>Data Backup</h3>
+
+            <p class="muted-note">
+                All data is stored in this browser only.
+                Take a backup before clearing browser data
+                or moving to another machine.
+            </p>
+
+            <div class="action-bar">
+
+                <button onclick="backupDatabase()">
+                    Download Backup
+                </button>
+
+                <button onclick="document.getElementById('restoreDbFile').click()">
+                    Restore Backup
+                </button>
+
+                <input
+                    type="file"
+                    id="restoreDbFile"
+                    accept=".json"
+                    hidden
+                    onchange="if (this.files[0]) { restoreDatabase(this.files[0]); this.value=''; }">
+
+            </div>
+
+        </div>
 
     </div>
 
@@ -958,22 +986,30 @@
 
 </main>
 
+
 <!-- =====================================================
      FOOTER
 ===================================================== -->
 
 <footer class="app-footer">
 
-    <span id="footerText">
+    <span id="footerText">Hotel Group Operations Suite</span>
 
-        Hotel Group Operations Suite
-
-    </span>
+    <span class="app-version">v1.0.0 RC1</span>
 
 </footer>
 
-<script src="js/printing.js"></script>
-<script src="js/app.js"></script>
+
+<!-- =====================================================
+     SCRIPTS
+     Load order matters. app.js must be last.
+===================================================== -->
+
+<script src="js/printing.js?v=1"></script>
+<script src="js/room-master.js?v=1"></script>
+<script src="js/reports.js?v=2"></script>
+<script src="js/app.js?v=1"></script>
 
 </body>
+
 </html>

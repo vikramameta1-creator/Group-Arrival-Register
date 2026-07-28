@@ -1,59 +1,213 @@
 /* =====================================================
-   PRINT ENGINE
+   HOTEL GROUP OPERATIONS SUITE
+   File    : js/printing.js
+   Version : 1.0.0 RC1
+
+   PRINT ENGINE + PRINT DOCUMENTS
+
+   Depends on app.js for:
+       getRegisterRows()
+       DB.settings
+
+   This file must load BEFORE app.js
 ===================================================== */
 
-function openPrintWindow(title, html) {
 
-    const printWindow = window.open("", "_blank");
+/* =====================================================
+   HTML ESCAPE
+===================================================== */
+
+function escapeHTML(value) {
+
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+
+/* =====================================================
+   PRINT ENGINE
+
+   openPrintWindow(title, bodyHtml, extraStyles)
+
+   extraStyles is optional and is appended after the
+   shared base styles, so each document can set its
+   own column widths and row heights.
+===================================================== */
+
+function openPrintWindow(title, bodyHtml, extraStyles) {
+
+    const printWindow =
+        window.open("", "_blank");
 
     if (!printWindow) {
-        alert("Unable to open print window.");
+
+        alert(
+            "Unable to open print window.\n\n" +
+            "Please allow pop-ups for this page."
+        );
+
         return;
     }
 
     printWindow.document.write(`
 <!DOCTYPE html>
 <html>
+
 <head>
+
 <meta charset="UTF-8">
-<title>${title}</title>
+
+<title>${escapeHTML(title)}</title>
 
 <style>
-
-body{
-    font-family:Arial,sans-serif;
-    margin:20px;
-    color:#000;
-}
-
-table{
-    width:100%;
-    border-collapse:collapse;
-}
-
-th,td{
-    border:1px solid #000;
-    padding:4px;
-    font-size:12px;
-}
-
-h1,h2,h3{
-    margin:4px 0;
-    text-align:center;
-}
 
 @page{
     size:A4 landscape;
     margin:10mm;
 }
 
+*{
+    box-sizing:border-box;
+}
+
+body{
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:12px;
+    color:#000;
+    margin:0;
+    padding:0;
+}
+
+/* ---------- DOCUMENT HEADER ---------- */
+
+.doc-hotel{
+    text-align:center;
+    font-size:18px;
+    font-weight:bold;
+    margin:0 0 2px;
+}
+
+.doc-title{
+    text-align:center;
+    font-size:14px;
+    font-weight:bold;
+    letter-spacing:.08em;
+    margin:0 0 10px;
+}
+
+.doc-meta{
+    width:100%;
+    border:1px solid #000;
+    border-collapse:collapse;
+    margin-bottom:10px;
+}
+
+.doc-meta td{
+    border:1px solid #000;
+    padding:5px 7px;
+    font-size:11px;
+}
+
+.doc-meta .label{
+    font-weight:bold;
+    width:12%;
+    background:#f0f0f0;
+}
+
+/* ---------- DATA TABLE ---------- */
+
+table.doc-table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+table.doc-table th{
+    border:1px solid #000;
+    padding:6px 5px;
+    font-size:11px;
+    font-weight:bold;
+    text-align:center;
+    background:#f0f0f0;
+}
+
+table.doc-table td{
+    border:1px solid #000;
+    padding:5px;
+    vertical-align:top;
+}
+
+/* Repeat the header row on every printed page */
+
+table.doc-table thead{
+    display:table-header-group;
+}
+
+table.doc-table tr{
+    page-break-inside:avoid;
+}
+
+/* ---------- TOTALS ---------- */
+
+.doc-totals{
+    width:100%;
+    border:1px solid #000;
+    border-collapse:collapse;
+    margin-top:10px;
+}
+
+.doc-totals td{
+    border:1px solid #000;
+    padding:5px 7px;
+    font-size:11px;
+    text-align:center;
+}
+
+.doc-totals .label{
+    font-weight:bold;
+    background:#f0f0f0;
+}
+
+/* ---------- SIGN OFF ---------- */
+
+.doc-signoff{
+    margin-top:22px;
+    width:100%;
+    font-size:11px;
+}
+
+.doc-signoff td{
+    padding-top:18px;
+    border-top:1px solid #000;
+    width:30%;
+    text-align:center;
+}
+
+.doc-signoff .spacer{
+    border:none;
+    width:5%;
+}
+
+.doc-footer{
+    margin-top:14px;
+    font-size:10px;
+    color:#333;
+    text-align:right;
+}
+
+</style>
+
+<style>
+${extraStyles || ""}
 </style>
 
 </head>
 
 <body>
 
-${html}
+${bodyHtml}
 
 </body>
 
@@ -64,127 +218,313 @@ ${html}
 
     printWindow.focus();
 
-    printWindow.print();
+    setTimeout(function () {
 
+        printWindow.print();
+
+    }, 350);
 }
 
+
 /* =====================================================
-   PRINT ROOMING LIST
+   PRINT HEADER DATA
 ===================================================== */
 
-function printRoomingList() {
+function getPrintHeaderData() {
 
-    const roomingList = document.getElementById("roomingPage");
+    const value = id =>
+        document.getElementById(id)?.value || "";
 
-    if (!roomingList) {
+    return {
 
-        alert("Rooming List not found.");
+        hotelName:
+            (typeof DB !== "undefined" &&
+             DB.settings &&
+             DB.settings.hotelName) ||
+            "Hotel Group Operations Suite",
 
-        return;
-
-    }
-
-    openPrintWindow(
-        "Rooming List",
-        roomingList.innerHTML
-    );
-
+        groupName:   value("groupName"),
+        arrivalDate: value("arrivalDate"),
+        agent:       value("agentCompany"),
+        preparedBy:  value("preparedBy"),
+        status:      value("groupStatus"),
+        notes:       value("groupNotes")
+    };
 }
+
+
+/* =====================================================
+   DOCUMENT HEADER BLOCK
+===================================================== */
+
+function buildDocumentHeader(title) {
+
+    const info = getPrintHeaderData();
+
+    return `
+
+<div class="doc-hotel">${escapeHTML(info.hotelName)}</div>
+
+<div class="doc-title">${escapeHTML(title)}</div>
+
+<table class="doc-meta">
+
+    <tr>
+        <td class="label">Group</td>
+        <td>${escapeHTML(info.groupName) || "&nbsp;"}</td>
+
+        <td class="label">Arrival</td>
+        <td>${escapeHTML(info.arrivalDate) || "&nbsp;"}</td>
+
+        <td class="label">Status</td>
+        <td>${escapeHTML(info.status) || "&nbsp;"}</td>
+    </tr>
+
+    <tr>
+        <td class="label">Agent</td>
+        <td>${escapeHTML(info.agent) || "&nbsp;"}</td>
+
+        <td class="label">Prepared By</td>
+        <td>${escapeHTML(info.preparedBy) || "&nbsp;"}</td>
+
+        <td class="label">Printed</td>
+        <td>${escapeHTML(new Date().toLocaleString())}</td>
+    </tr>
+
+</table>
+
+`;
+}
+
+
+/* =====================================================
+   TOTALS BLOCK
+===================================================== */
+
+function buildTotalsBlock(rows) {
+
+    let pax = 0;
+
+    let ep = 0;
+    let cp = 0;
+    let map = 0;
+    let ap = 0;
+
+    rows.forEach(row => {
+
+        const p = Number(row.pax) || 0;
+
+        pax += p;
+
+        switch (row.meal) {
+
+            case "EP":
+                ep += p;
+                break;
+
+            case "CP":
+                cp += p;
+                break;
+
+            case "MAP":
+                map += p;
+                break;
+
+            case "AP":
+                ap += p;
+                break;
+        }
+
+    });
+
+    return `
+
+<table class="doc-totals">
+
+    <tr>
+        <td class="label">Total Rooms</td>
+        <td class="label">Total Pax</td>
+        <td class="label">EP</td>
+        <td class="label">CP</td>
+        <td class="label">MAP</td>
+        <td class="label">AP</td>
+    </tr>
+
+    <tr>
+        <td>${rows.length}</td>
+        <td>${pax}</td>
+        <td>${ep}</td>
+        <td>${cp}</td>
+        <td>${map}</td>
+        <td>${ap}</td>
+    </tr>
+
+</table>
+
+`;
+}
+
+
+/* =====================================================
+   SIGN OFF BLOCK
+===================================================== */
+
+function buildSignOffBlock() {
+
+    return `
+
+<table class="doc-signoff">
+
+    <tr>
+        <td>Group Leader</td>
+        <td class="spacer"></td>
+        <td>Front Office</td>
+        <td class="spacer"></td>
+        <td>Duty Manager</td>
+    </tr>
+
+</table>
+
+`;
+}
+
+
+/* =====================================================
+   REGISTER COLUMN WIDTHS
+   Shared by Print Register and Blank Register so both
+   documents look like the same form.
+===================================================== */
+
+const REGISTER_COLUMN_STYLES = `
+
+table.doc-table th:nth-child(1),
+table.doc-table td:nth-child(1){ width:5%;  text-align:center; }
+
+table.doc-table th:nth-child(2),
+table.doc-table td:nth-child(2){ width:8%;  text-align:center; }
+
+table.doc-table th:nth-child(3),
+table.doc-table td:nth-child(3){ width:32%; }
+
+table.doc-table th:nth-child(4),
+table.doc-table td:nth-child(4){ width:6%;  text-align:center; }
+
+table.doc-table th:nth-child(5),
+table.doc-table td:nth-child(5){ width:8%;  text-align:center; }
+
+table.doc-table th:nth-child(6),
+table.doc-table td:nth-child(6){ width:13%; }
+
+table.doc-table th:nth-child(7),
+table.doc-table td:nth-child(7){ width:28%; }
+
+`;
+
+
 /* =====================================================
    PRINT REGISTER
+
+   Guest facing document.
+   Names are pre-printed, guests sign on arrival.
 ===================================================== */
 
 function printRegister() {
 
     const rows = getRegisterRows();
 
-    let html = "";
+    if (rows.length === 0) {
 
-    html += `
-        <h2>${DB.settings.hotelName || "Hotel Group Operations Suite"}</h2>
+        alert(
+            "The register is empty.\n\n" +
+            "Add rows first, or use Blank Register."
+        );
 
-        <h3>GROUP ARRIVAL REGISTER</h3>
+        return;
+    }
 
-        <table>
+    let tableRows = "";
 
-            <thead>
+    rows.forEach((row, index) => {
 
-                <tr>
-
-                    <th>Sr</th>
-                    <th>Room</th>
-                    <th>Guest Name</th>
-                    <th>Pax</th>
-                    <th>Meal</th>
-                    <th>Mobile</th>
-                    <th>VIP</th>
-                    <th>Special Request</th>
-
-                </tr>
-
-            </thead>
-
-            <tbody>
-    `;
-
-    rows.forEach((r, index) => {
-
-        html += `
-
-            <tr>
-
-                <td>${index + 1}</td>
-
-                <td>${r.roomNo || ""}</td>
-
-                <td>${r.guestName || ""}</td>
-
-                <td>${r.pax || ""}</td>
-
-                <td>${r.meal || ""}</td>
-
-                <td>${r.mobile || ""}</td>
-
-                <td>${r.vip ? "YES" : ""}</td>
-
-                <td>${r.specialRequest || ""}</td>
-
-            </tr>
-
+        tableRows += `
+        <tr>
+            <td>${index + 1}</td>
+            <td>${escapeHTML(row.roomNo)}</td>
+            <td>${escapeHTML(row.guestName)}${row.vip ? " <strong>[VIP]</strong>" : ""}</td>
+            <td>${escapeHTML(row.pax)}</td>
+            <td>${escapeHTML(row.meal)}</td>
+            <td>${escapeHTML(row.mobile)}</td>
+            <td></td>
+        </tr>
         `;
 
     });
 
-    html += `
+    const html = `
 
-            </tbody>
+${buildDocumentHeader("GROUP ARRIVAL REGISTER")}
 
-        </table>
+<table class="doc-table">
 
-    `;
+    <thead>
+        <tr>
+            <th>Sr</th>
+            <th>Room</th>
+            <th>Guest Name</th>
+            <th>Pax</th>
+            <th>Meal</th>
+            <th>Mobile No</th>
+            <th>Guest Signature</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        ${tableRows}
+    </tbody>
+
+</table>
+
+${buildTotalsBlock(rows)}
+
+${buildSignOffBlock()}
+
+`;
+
+    const styles =
+        REGISTER_COLUMN_STYLES +
+        `
+        table.doc-table td{ height:34px; }
+        `;
 
     openPrintWindow(
         "Group Arrival Register",
-        html
+        html,
+        styles
     );
-
 }
+
+
 /* =====================================================
    PRINT BLANK REGISTER
+
+   Same form, empty, for handwritten entry.
 ===================================================== */
 
 function printBlankRegister() {
 
-    const rows = Number(
-
-        prompt(
-            "Blank Register Rows (20 / 30 / 40 / 50)",
-            30
-        )
-
+    const input = prompt(
+        "Blank Register Rows (20 / 30 / 40 / 50)",
+        30
     );
 
-    if (!rows || rows < 1) {
+    if (input === null) return;
+
+    const rows = Number(input);
+
+    if (!rows || rows < 1 || rows > 200) {
+
+        alert("Enter a row count between 1 and 200.");
+
         return;
     }
 
@@ -205,168 +545,173 @@ function printBlankRegister() {
         `;
     }
 
-    const printWindow =
-        window.open(
-            "",
-            "_blank"
-        );
+    const html = `
 
-    printWindow.document.write(`
+<div class="doc-hotel">
+    ${escapeHTML(
+        (typeof DB !== "undefined" &&
+         DB.settings &&
+         DB.settings.hotelName) ||
+        "Hotel Group Operations Suite"
+    )}
+</div>
 
-<!DOCTYPE html>
-<html>
+<div class="doc-title">GROUP ARRIVAL REGISTER</div>
 
-<head>
+<table class="doc-meta">
 
-<title>
-Group Arrival Register
-</title>
+    <tr>
+        <td class="label">Group</td>
+        <td>&nbsp;</td>
 
-<style>
+        <td class="label">Arrival</td>
+        <td>&nbsp;</td>
 
-@page{
-    size:A4 landscape;
-    margin:10mm;
-}
-
-body{
-    font-family:Arial,sans-serif;
-    font-size:12px;
-    margin:0;
-    padding:0;
-}
-
-h2{
-    text-align:center;
-    margin-bottom:5px;
-}
-
-h4{
-    text-align:center;
-    margin-top:0;
-    margin-bottom:15px;
-    font-weight:normal;
-}
-
-table{
-    width:100%;
-    border-collapse:collapse;
-}
-
-th{
-    border:1px solid #000;
-    padding:8px;
-    text-align:center;
-    font-weight:bold;
-    height:30px;
-}
-
-td{
-    border:1px solid #000;
-    height:75px;
-    padding:6px;
-    vertical-align:top;
-}
-
-th:nth-child(1),
-td:nth-child(1){
-    width:5%;
-    text-align:center;
-}
-
-th:nth-child(2),
-td:nth-child(2){
-    width:8%;
-}
-
-th:nth-child(3),
-td:nth-child(3){
-    width:35%;
-}
-
-th:nth-child(4),
-td:nth-child(4){
-    width:8%;
-    text-align:center;
-}
-
-th:nth-child(5),
-td:nth-child(5){
-    width:10%;
-    text-align:center;
-}
-
-th:nth-child(6),
-td:nth-child(6){
-    width:14%;
-}
-
-th:nth-child(7),
-td:nth-child(7){
-    width:20%;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<h2>
-GROUP ARRIVAL REGISTER
-</h2>
-
-<h4>
-Date: _____________________
-&nbsp;&nbsp;&nbsp;&nbsp;
-Group: ______________________________________
-</h4>
-
-<table>
-
-<thead>
-
-<tr>
-
-<th>Sr</th>
-
-<th>Room No</th>
-
-<th>Guest Name</th>
-
-<th>Pax</th>
-
-<th>Meal</th>
-
-<th>Mobile No</th>
-
-<th>Signature</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-${tableRows}
-
-</tbody>
+        <td class="label">Agent</td>
+        <td>&nbsp;</td>
+    </tr>
 
 </table>
 
-</body>
+<table class="doc-table">
 
-</html>
+    <thead>
+        <tr>
+            <th>Sr</th>
+            <th>Room</th>
+            <th>Guest Name</th>
+            <th>Pax</th>
+            <th>Meal</th>
+            <th>Mobile No</th>
+            <th>Guest Signature</th>
+        </tr>
+    </thead>
 
-    `);
+    <tbody>
+        ${tableRows}
+    </tbody>
 
-    printWindow.document.close();
+</table>
 
-    printWindow.focus();
+${buildSignOffBlock()}
 
-    setTimeout(() => {
+`;
 
-        printWindow.print();
+    const styles =
+        REGISTER_COLUMN_STYLES +
+        `
+        table.doc-table td{ height:62px; }
+        `;
 
-    }, 500);
+    openPrintWindow(
+        "Blank Arrival Register",
+        html,
+        styles
+    );
+}
+
+
+/* =====================================================
+   PRINT ROOMING LIST
+
+   Internal document for Housekeeping and F&B.
+   Carries VIP flags and special requests.
+===================================================== */
+
+function printRoomingList() {
+
+    const rows = getRegisterRows();
+
+    if (rows.length === 0) {
+
+        alert(
+            "The rooming list is empty.\n\n" +
+            "Add rows on the Arrival Register first."
+        );
+
+        return;
+    }
+
+    let tableRows = "";
+
+    rows.forEach(row => {
+
+        tableRows += `
+        <tr>
+            <td>${escapeHTML(row.roomNo)}</td>
+            <td>${escapeHTML(row.guestName)}</td>
+            <td>${escapeHTML(row.pax)}</td>
+            <td>${escapeHTML(row.meal)}</td>
+            <td>${escapeHTML(row.mobile)}</td>
+            <td>${row.vip ? "VIP" : ""}</td>
+            <td>${escapeHTML(row.specialRequest)}</td>
+        </tr>
+        `;
+
+    });
+
+    const html = `
+
+${buildDocumentHeader("ROOMING LIST")}
+
+<table class="doc-table">
+
+    <thead>
+        <tr>
+            <th>Room</th>
+            <th>Guest Name</th>
+            <th>Pax</th>
+            <th>Meal</th>
+            <th>Mobile No</th>
+            <th>VIP</th>
+            <th>Special Request</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        ${tableRows}
+    </tbody>
+
+</table>
+
+${buildTotalsBlock(rows)}
+
+<div class="doc-footer">
+    Internal document — Housekeeping / Food &amp; Beverage
+</div>
+
+`;
+
+    const styles = `
+
+table.doc-table th:nth-child(1),
+table.doc-table td:nth-child(1){ width:8%;  text-align:center; }
+
+table.doc-table th:nth-child(2),
+table.doc-table td:nth-child(2){ width:26%; }
+
+table.doc-table th:nth-child(3),
+table.doc-table td:nth-child(3){ width:6%;  text-align:center; }
+
+table.doc-table th:nth-child(4),
+table.doc-table td:nth-child(4){ width:8%;  text-align:center; }
+
+table.doc-table th:nth-child(5),
+table.doc-table td:nth-child(5){ width:14%; }
+
+table.doc-table th:nth-child(6),
+table.doc-table td:nth-child(6){ width:6%;  text-align:center; font-weight:bold; }
+
+table.doc-table th:nth-child(7),
+table.doc-table td:nth-child(7){ width:32%; }
+
+table.doc-table td{ height:26px; }
+
+`;
+
+    openPrintWindow(
+        "Rooming List",
+        html,
+        styles
+    );
 }

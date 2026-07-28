@@ -1,624 +1,372 @@
-# HOTEL GROUP OPERATIONS SUITE
-## PROJECT_TRACKER.md
+# CLAUDE.md
+## Hotel Group Operations Suite — Authoritative Project Context
+
+Read this file completely before suggesting any code change.
+This file is the single source of truth. If anything you remember
+about this project contradicts this file, this file wins.
 
 ---
 
-# Project Information
+# 1. WHAT THIS IS
 
-**Project Name:** Hotel Group Operations Suite
+A Hotel Group Operations Suite for hotel Front Office staff.
 
-**Current Version:** v1.0.0 Beta
+It replaces manual registers and Excel sheets used for:
 
-**Project Type:**
-Commercial Hotel Front Office Operations Software
-
-**Platform:**
-HTML
-CSS
-JavaScript
-
-(Currently Local Storage based)
-
-Future:
-
-SQLite / SQL Server / MySQL (Version 2+)
-
----
-
-# Vision
-
-The objective of this project is to build a professional Hotel Group Operations Suite that can be used by Front Office staff in real hotel environments.
-
-This software replaces manual registers, Excel sheets and handwritten arrival lists.
-
-The application should resemble commercial Property Management Systems (PMS) such as:
-
-- Oracle Opera PMS
-- IDS Next
-- eZee FrontDesk
-- Hotelogix
-
-The software must prioritize usability, speed, reliability and professional appearance.
-
----
-
-# Core Philosophy
-
-Commercial software first.
-
-Every decision must answer one question:
-
-"Will this improve the receptionist's workflow?"
-
-If the answer is **No**, the feature should be postponed.
-
-Version 1.0 is feature frozen.
-
-Only these are allowed before release:
-
-- Bug Fixes
-- UI Improvements
-- Workflow Improvements
-- Validation
-- Printing
+- Group arrivals
+- Rooming lists
+- Meal plans
+- Room category mapping
+- Register printing
+- Dashboard
 - Reports
-- Testing
-- Modularization
+
+Target feel: Oracle Opera, IDS Next, eZee FrontDesk, Hotelogix.
+
+**Not** a generic CRUD app. Software a receptionist uses every day.
+
+**Author:** Vikram
+**Current version:** v1.0.0 RC1 (in progress)
+**Completion:** ~78% (Room Master added to v1.0 scope)
 
 ---
 
-# Current Progress
+# 2. HOW TO ANSWER — NON-NEGOTIABLE
 
-Estimated Completion:
+The developer is not a professional JavaScript developer and works
+entirely by copy and paste.
 
-85%
+**Always use this format for every code change:**
 
-Current Status:
+> **FILE:** `js/app.js`
+> **FIND THIS:** *(exact text to search for)*
+> **REPLACE WITH THIS:** *(complete replacement)*
+> or **DELETE ALL OF IT**
 
-Version 1.0 Beta
+Rules:
 
-Target:
+- Always name the file. Multiple JS files are in play.
+- Always give COMPLETE functions. Never fragments.
+- Never say "insert this somewhere" or "add this near".
+- Never reference line numbers. Reference SECTION HEADERS.
+- Never assume a function exists — check or ask.
+- One phase at a time. Every phase ends with a test and a commit.
+- If a syntax error appears, stop everything and fix it first.
 
-Version 1.0 Release Candidate
+Classify every suggestion:
 
----
+- 🔴 Release blocker
+- 🟡 Important before v1.0
+- 🟢 Version 1.1
 
-# Current Modules
-
-## Completed
-
-✔ Database
-
-✔ Navigation
-
-✔ Dashboard
-
-✔ Arrival Register
-
-✔ Save Group
-
-✔ Open Group
-
-✔ Delete Group
-
-✔ Settings
-
-✔ Repository Layer
-
-✔ Printing Engine
-
-✔ Application Refresh Pipeline
+Always explain WHY a change matters to hotel operations.
 
 ---
 
-## In Progress
+# 3. ACTUAL FILE STRUCTURE
 
-⬜ Reports Verification
+```
+d:\vikram\group arrival\
+├── Group_Arrival_Register.html    ← entry file (NOT index.html)
+├── css/
+│   └── style.css                  ~950 lines
+├── js/
+│   ├── printing.js  
+     room-master.js    
+     printing.js          ~717 lines  (loads FIRST)
+│   └── app.js                     ~2500 lines (loads SECOND)
+├── CLAUDE.md
+├── PROJECT_TRACKER.md
+└── jsconfig.json
+```
 
-⬜ Print Formatting
+Script order in the HTML — this matters:
 
-⬜ Rooming List Polish
+```html
+<script src="js/printing.js"></script>
+<script src="js/app.js"></script>
+```
 
-⬜ QA Testing
-
-⬜ UI Polish
-
-⬜ Packaging
-
----
-
-# Application Architecture
-
-Application
-
-│
-
-├── Bootstrap
-
-├── Settings
-
-├── Navigation
-
-├── Arrival Register
-
-├── Dashboard
-
-├── Reports
-
-├── Printing
-
-├── Repository
-
-└── Database
-
-Every application action should flow through the controller layer.
-
-Example:
-
-Save
-
-↓
-
-Repository
-
-↓
-
-Database
-
-↓
-
-Refresh Application
+The folder is **`js/`**, not `modules/`. Earlier documents said
+`modules/`; that was superseded.
 
 ---
 
-# Repository Pattern
+# 4. CODING STYLE
 
-The UI should never manipulate:
+Deliberately simple. Preserve it exactly.
 
-DB.groups
+- Vanilla JavaScript only
+- No frameworks, no React, no TypeScript, no build tools, no npm
+- Plain `function` declarations, global scope, no modules or IIFEs
+- Generous blank lines and vertical spacing
+- Section headers everywhere:
 
-directly.
-
-Always use:
-
-GroupRepository.get()
-
-GroupRepository.getAll()
-
-GroupRepository.add()
-
-GroupRepository.update()
-
-GroupRepository.remove()
-
-GroupRepository.count()
-
-Reason:
-
-Commercial software separates UI from data.
-
----
-
-# Printing Architecture
-
-All print operations should use:
-
-openPrintWindow()
-
-Never call:
-
-window.print()
-
-directly from UI buttons.
-
-Current Print Modules:
-
-✔ Print Register
-
-✔ Print Rooming List
-
-✔ Print Blank Register
-
-Future print improvements should modify only the Print Engine.
-
----
-
-# Modularization Plan
-
-Current:
-
-index.html
-
-style.css
-
-app.js (~3550 lines)
-
-Target:
-
-index.html
-
-css/
-
-style.css
-
-modules/
-
-database.js
-
-repository.js
-
-utilities.js
-
-navigation.js
-
-dashboard.js
-
-register.js
-
-printing.js
-
-reports.js
-
-settings.js
-
-app.js
-
-app.js should eventually become only:
-
-- Bootstrap
-- Application Startup
-- Event Registration
-
-Nothing else.
-
----
-
-# Modularization Rules
-
-Move one module at a time.
-
-Test.
-
-Commit.
-
-Continue.
-
-Never split code by line count.
-
-Split by responsibility.
-
----
-
-# Development Rules
-
-Always use Section Headers.
-
-Example:
-
+```javascript
 /* =====================================================
-   PRINT REGISTER
+   SECTION NAME
 ===================================================== */
+```
 
-Never reference line numbers.
-
-Never assume functions exist.
-
-Always request the relevant section before modifying.
-
-Always provide complete replacement functions.
-
-Never provide partial snippets.
-
-Every change should support copy-paste workflow.
+- Minimal nesting, no clever abstractions
+- HTML event handlers use inline `onclick` only for globals
+  already used that way; new bindings go in `initialize*Events()`
 
 ---
 
-# Coding Style
+# 5. ARCHITECTURE
 
-The project intentionally avoids complex JavaScript patterns.
+```
+DOMContentLoaded
+      ↓
+initializeApplication()      ← the ONLY bootstrap
+      ↓
+refreshApplicationSettings()
+initializeNavigation()
+initializeRegisterEvents()
+initializeGroupEvents()
+initializePrintEvents()
+initializeSettingsEvents()
+initializeProfessionalTools()
+restoreDraft()
+refreshApplication()
+```
 
-Preferred style:
+There is exactly **one** `DOMContentLoaded` listener, at the bottom
+of `app.js`. Never add another. The five "App.js Part N Loaded"
+startup blocks were removed — do not reintroduce them.
 
-Simple
+## Controllers
 
-Readable
+Never refresh modules individually from UI code. Use:
 
-Maintainable
+| Controller | Does |
+|---|---|
+| `refreshApplication()` | settings + dashboard + register views |
+| `refreshApplicationSettings()` | branding, logo, clock |
+| `refreshEntireDashboard()` | KPIs, control center, arrival cards, saved groups |
+| `refreshRegisterViews()` | summary + rooming list + reports |
+| `initializeApplication()` | bootstrap, called once |
 
-Copy-paste friendly
+## Repository
 
-Minimal nesting
+UI must never touch `DB.groups` directly. Always:
 
-Clear section headers
+```
+GroupRepository.getAll() / get() / add() / update() / remove() / count()
+```
 
-No unnecessary abstractions
-
-No frameworks
-
-No build tools
-
-No TypeScript
-
-No React
-
-No transpilers
-
-This is intended to remain a lightweight browser application.
-
----
-
-# Testing Philosophy
-
-Every change follows:
-
-Modify
-
-↓
-
-Run
-
-↓
-
-Console Check
-
-↓
-
-Functional Test
-
-↓
-
-Continue
-
-Never perform multiple major changes without testing.
-
----
-
-# Current Known Issues
-
-## Critical
-
-None currently.
-
----
-
-## Important
-
-Improve Print Register formatting.
-
-Improve Rooming List print formatting.
-
-Verify Reports.
-
-Professional dialogs.
-
-Keyboard workflow.
-
----
-
-## Version 1.1
-
-Cloud Sync
-
-User Accounts
-
-Audit Trail
-
-Undo
-
-Advanced Search
-
-Database Backend
-
-Installer
-
-Multi-user Support
-
----
-
-# Release Checklist
-
-## Core
-
-☑ Database
-
-☑ Dashboard
-
-☑ Arrival Register
-
-☑ Settings
-
-☑ Save/Open/Delete
-
----
+All write methods call `saveDatabase()` internally.
 
 ## Printing
 
-☑ Print Register
+All print output goes through:
 
-☑ Print Rooming List
+```javascript
+openPrintWindow(title, bodyHtml, extraStyles)
+```
 
-☑ Print Blank Register
-
-☐ Final Print Layout
-
----
-
-## Reports
-
-☐ Verify All Reports
+Never call `window.print()` from UI code. `extraStyles` is the third
+argument — each document passes its own column widths. All three
+print documents use the engine; none bypasses it.
 
 ---
 
-## Validation
+# 6. DATA MODEL
 
-☐ Duplicate Room Validation
+```javascript
+DB = {
 
-☐ Empty Group Validation
+    groups: [
+        {
+            id, groupName, arrivalDate, agent, preparedBy,
+            status, notes, totalRooms, totalPax,
+            createdOn, modifiedOn,
+            rooms: [
+                { roomNo, guestName, pax, meal,
+                  mobile, vip, specialRequest }
+            ]
+        }
+    ],
 
-☐ Numeric Validation
+    settings: {
+        hotelName, footerText, logo,
+        roomNumbersOnly,      // true = digits only, max 3
+        showRoomCategory      // print/report toggle
+    },
 
----
+    roomMaster: {             // Sprint C, in progress
+        categories: [ "Deluxe", "Suite" ],
+        rooms: { "101": "Deluxe" }
+    },
 
-## UI
+    archive: []
+}
+```
 
-☐ Professional PMS Styling
+localStorage keys: `hotel_group_operations_v5`, `GROUP_DRAFT`
 
-☐ Icons
+**One row = one room = one guest name.** Pax carries the headcount.
+Multiple guests sharing a room go in Guest Name as free text
+("Sharma, Rajesh + Sharma, Priya"). Duplicate room numbers are
+therefore legitimate — Save warns, never blocks.
 
-☐ Better Dialogs
-
-☐ Keyboard Shortcuts
-
----
-
-## Packaging
-
-☐ Version Number
-
-☐ Backup System
-
-☐ Documentation
-
-☐ Release Build
-
----
-
-# Git Workflow
-
-Every completed milestone receives one commit.
-
-Examples:
-
-Initial Beta
-
-M1 - Printing Module
-
-M2 - Settings Module
-
-M3 - Dashboard Module
-
-M4 - Register Module
-
-M5 - Reports Module
-
-RC1
-
-Version 1.0
-
-Never commit broken code.
-
-Every commit should compile successfully.
+Proper multi-guest-per-room (nested `guests[]`) is 🟢 v1.1.
 
 ---
 
-# Folder Structure (Target)
+# 7. REGISTER INPUT RULES
 
-Hotel_Group_Operations_Suite/
+| Column | Cell index | Accepts | Max |
+|---|---|---|---|
+| Room (numeric mode) | 1 | digits | 3 |
+| Room (free mode) | 1 | letters, digits, `-`, space | 10 |
+| Pax | 3 | digits | 2 |
+| Mobile | 5 | digits, `+`, `-`, space | 15 |
+| Guest Name | 2 | anything, whitespace collapsed | — |
 
-│
+Mode is `DB.settings.roomNumbersOnly`, toggled in Settings →
+Register Rules, applied immediately (no Save press needed).
 
-├── index.html
-
-├── css/
-
-│ └── style.css
-
-├── modules/
-
-│ ├── database.js
-
-│ ├── repository.js
-
-│ ├── utilities.js
-
-│ ├── navigation.js
-
-│ ├── dashboard.js
-
-│ ├── register.js
-
-│ ├── printing.js
-
-│ ├── reports.js
-
-│ └── settings.js
-
-├── app.js
-
-├── PROJECT_TRACKER.md
-
-├── CHANGELOG.md
-
-├── README.md
-
-└── LICENSE
+Enter moves down the same column. Line breaks are never allowed
+inside a register cell.
 
 ---
 
-# Version History
+# 8. BUGS ALREADY FIXED — DO NOT REINTRODUCE
 
-## v1.0 Beta
-
-Initial working software.
-
-Arrival Register operational.
-
-Dashboard operational.
-
-Printing engine introduced.
-
-Repository pattern introduced.
-
-Beginning modularization.
+| Bug | Fix |
+|---|---|
+| `saveDB()` undefined in GroupRepository | use `saveDatabase()` |
+| `getRegisterRows()` declared twice, different schemas | one declaration; schema is `roomNo` / `guestName` / `specialRequest` |
+| Saved Groups delete removed the wrong group when searching | `renderSavedGroups()` carries the real `DB.groups` index through filter and sort |
+| `toISOString()` gave UTC — arrivals wrong before 05:30 IST | `getLocalDateString()` / `getTodayString()` / `getTomorrowString()` |
+| Five competing `DOMContentLoaded` blocks | one bootstrap |
+| `printBlankRegister()` duplicated in `app.js` | lives only in `printing.js` |
+| `addVIPColumn()` / `addSpecialRequestColumn()` appended phantom headers | functions deleted |
+| Orphaned `<thead>` with no `<table>` in dashboard panels | removed |
+| Duplicate `<body>` tag | removed |
 
 ---
 
-# Definition of Done (Version 1.0)
+# 9. DECISIONS ALREADY MADE — DO NOT REOPEN
 
-Version 1.0 is complete when:
-
-✔ No JavaScript errors
-
-✔ No data loss
-
-✔ Save/Open/Delete works
-
-✔ Dashboard updates correctly
-
-✔ Printing works
-
-✔ Reports verified
-
-✔ UI polished
-
-✔ Modularization completed
-
-✔ Documentation completed
-
-✔ Packaged for deployment
-
-No additional features should be added after this point.
-
-Version 1.1 begins only after Version 1.0 is released.
+- Folder is `js/`, entry file is `Group_Arrival_Register.html`
+- Bulk Import panel is permanently visible; there is no toggle button
+- Print Register is guest-facing and carries a Signature column.
+  VIP appears inline as `[VIP]` next to the name, never as a column.
+- Rooming List is internal (Housekeeping / F&B) and carries VIP and
+  Special Request columns
+- **Room category shows on the Rooming List only, never on the
+  guest-signed Arrival Register**
+- Unmapped room numbers show a silent dash, no warning
+- Room category feeds occupancy percentages in Reports
+- Duplicate rooms on Save: warn and allow
+- Unsaved draft: restore it and show a Keep / Discard banner
+- Reports support both Current Group and All Groups, with filters.
+  No weekly / monthly / yearly rollups.
 
 ---
 
-# AI Collaboration Notes
+# 10. ROADMAP TO v1.0
 
-This project may be worked on by multiple AI assistants (e.g., ChatGPT, Claude).
+### Sprint A — Register rules ✅ complete
+`M8` numeric room toggle · `M9` keyboard navigation
 
-All assistants should follow the same principles:
+### Sprint B — Reports (3 phases)
+`R1` Current Group / All Groups toggle + empty states
+`R2` filters: date range, status, agent
+`R3` verify every card against hand-calculated numbers
 
-- Preserve existing functionality.
-- Do not rewrite large portions of working code.
-- Refactor in small, testable phases.
-- Always identify changes by SECTION HEADER.
-- Provide complete replacement functions.
-- Avoid assumptions about existing code.
-- Classify suggestions as:
-  - 🔴 Release blocker
-  - 🟡 Important before v1.0
-  - 🟢 Version 1.1 enhancement
-- Prioritize hotel operations and receptionist workflow over technical perfection.
+### Sprint C — Room Master (4 phases) ← in v1.0 scope
+`RM1` data model + Room Master page (categories, range assign, bulk paste)
+`RM2` category lookup in register, silent dash when unmapped
+`RM3` Rooming List print integration + `showRoomCategory` checkbox
+`RM4` Reports: category breakdown and occupancy percentage
 
-This document is the authoritative project reference and should be updated whenever major milestones, architecture changes, or release decisions are made.
+### Sprint D — Modularization (7 phases, one file each)
+`database.js` → `utilities.js` → `settings.js` → `reports.js`
+→ `register.js` → `dashboard.js` → `groups.js`
+`app.js` ends as bootstrap only, ~200 lines.
+Move one, test, commit, next. Split by responsibility, never by line count.
+
+### Sprint E — Workflow QA (2 phases)
+`Q1` replace `alert` / `prompt` / `confirm` with in-page dialogs
+`Q2` keyboard workflow: Ctrl+S save, Ctrl+P print, Tab across
+
+### Sprint F — Packaging (3 phases)
+`P1` README.md + CHANGELOG.md
+`P2` PROJECT_TRACKER.md refresh
+`P3` version constant + `v1.0.0` tag
+
+### Then
+RC1 → soak test on one real group arrival → Version 1.0
+
+---
+
+# 11. v1.1 BACKLOG — NOT NOW
+
+Multi-guest per room · cloud sync · user accounts · audit trail ·
+undo · advanced search · database backend · installer · multi-user ·
+ESLint
+
+---
+
+# 12. TESTING
+
+Every phase ends with:
+
+```
+Change → Reload → Console check → Functional test → Commit
+```
+
+A clean console shows exactly two lines and nothing red:
+
+```
+Hotel Professional Tools Ready
+Hotel Group Operations Suite Initialized
+```
+
+Regression checklist for any change touching the register or groups:
+
+1. All tabs switch
+2. Add Row → one row · Generate Rows 5 → five rows
+3. Room rejects letters and a 4th digit · Pax caps at 2 · Enter moves down
+4. Save Group → F5 → still listed
+5. Search Saved Groups, then Delete → correct group removed
+6. Print Register · Blank Register · Print Rooming List
+7. Export JSON · Export CSV · Open Group · Bulk Import
+8. Settings: logo, footer, room mode toggle, backup, restore
+
+---
+
+# 13. GIT
+
+One commit per completed phase. Never commit broken code.
+
+```
+M1 - Printing module extracted
+M2 - Unified application bootstrap
+M3 - Rebuilt app.js
+M4 - HTML rebuild
+M5 - Responsive grid fixes
+M6 - Print engine rewrite
+M7 - Draft banner and shared-room save warning
+M8 - Register input rules with numeric room toggle
+M9 - Register keyboard navigation
+```
+
+---
+
+# 14. NOTE FOR THE ASSISTANT
+
+This project has been worked on by more than one AI assistant.
+Previous failures came from assuming code existed, giving partial
+snippets, and referencing line numbers.
+
+When verifying in the IDE, always end the prompt with
+**"Report only — do not change any files."**
+
+Preserve working code. Refactor in small testable phases.
+Prioritise hotel operations over technical elegance.
+Version 1.0 is about shipping.

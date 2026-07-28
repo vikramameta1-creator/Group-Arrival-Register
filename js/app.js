@@ -110,6 +110,8 @@ function saveDatabase() {
             JSON.stringify(DB)
         );
 
+        showSaveFlash("Saved");
+
     } catch (error) {
 
         console.error(
@@ -117,12 +119,53 @@ function saveDatabase() {
             error
         );
 
+        showSaveFlash("Save failed", true);
+
         alert(
             "Unable to save data. Storage may be full."
         );
     }
 }
 
+
+/* =====================================================
+   SAVE INDICATOR
+===================================================== */
+
+let saveFlashTimer = null;
+
+function showSaveFlash(message, isError) {
+
+    let flash =
+        document.getElementById("saveFlash");
+
+    if (!flash) {
+
+        flash = document.createElement("div");
+
+        flash.id = "saveFlash";
+
+        flash.className = "save-flash";
+
+        document.body.appendChild(flash);
+    }
+
+    flash.textContent =
+        (isError ? "✕  " : "✓  ") + (message || "Saved");
+
+    flash.classList.toggle("error", !!isError);
+
+    flash.classList.add("show");
+
+    clearTimeout(saveFlashTimer);
+
+    saveFlashTimer =
+        setTimeout(function () {
+
+            flash.classList.remove("show");
+
+        }, 1800);
+}
 
 /* =====================================================
    GROUP REPOSITORY
@@ -2537,110 +2580,6 @@ function initializeProfessionalTools() {
 /* =====================================================
    REGISTER INPUT RESTRICTIONS
 
-   Set ROOM_NUMBERS_ONLY to false if your hotel uses
-   room names or letters (A101, Lake View 2, PH-1).
-===================================================== */
-
-const ROOM_NUMBERS_ONLY = true;
-
-const REGISTER_CELL_FILTERS = {
-
-    /* Room */
-    1: ROOM_NUMBERS_ONLY
-        ? /[^0-9]/g
-        : /[^0-9A-Za-z\- ]/g,
-
-    /* Pax */
-    3: /[^0-9]/g,
-
-    /* Mobile */
-    5: /[^0-9+\- ]/g
-
-};
-
-
-function getRegisterCellFilter(target) {
-
-    const cell =
-        target && target.closest
-            ? target.closest("td")
-            : null;
-
-    if (!cell) return null;
-
-    return REGISTER_CELL_FILTERS[cell.cellIndex] || null;
-}
-
-
-/* ---------- Block Disallowed Typing And Pasting ---------- */
-
-function handleRegisterBeforeInput(event) {
-
-    const filter =
-        getRegisterCellFilter(event.target);
-
-    if (!filter) return;
-
-    let text = event.data;
-
-    if (text == null && event.dataTransfer) {
-
-        text = event.dataTransfer.getData("text");
-    }
-
-    if (!text) return;
-
-    if (text.replace(filter, "") !== text) {
-
-        event.preventDefault();
-    }
-}
-
-
-/* ---------- Clean Anything That Slipped Through ---------- */
-
-function handleRegisterCleanup(event) {
-
-    const cell =
-        event.target && event.target.closest
-            ? event.target.closest(
-                'td[contenteditable="true"]'
-              )
-            : null;
-
-    if (!cell) return;
-
-    const rule =
-        getRegisterCellRule(cell.cellIndex);
-
-    const original = cell.innerText;
-
-    /* Always collapse line breaks and double spaces */
-
-    let cleaned =
-        original
-        .replace(/\s+/g, " ")
-        .trim();
-
-    /* Apply the column rule where one exists */
-
-    if (rule) {
-
-        cleaned =
-            cleaned
-            .replace(rule.pattern, "")
-            .slice(0, rule.maxLength);
-    }
-
-    if (cleaned !== original) {
-
-        cell.innerText = cleaned;
-
-        refreshRegisterViews();
-    }
-}/* =====================================================
-   REGISTER INPUT RESTRICTIONS
-
    Room mode is controlled from Settings.
    Numeric mode  : digits only, max 3  (001 - 999)
    Free mode     : letters, digits, hyphen, space, max 10
@@ -2929,6 +2868,37 @@ function toggleBulkImport() {
    One age box per child. Adding a child adds a box.
 ===================================================== */
 
+function getChildLimit(row) {
+
+    const roomNo =
+        row.cells[REGISTER_COLUMNS.ROOM]
+        ?.innerText.trim() || "";
+
+    const pax =
+        Number(
+            row.cells[REGISTER_COLUMNS.PAX]?.innerText
+        ) || 0;
+
+    let limit = 9;
+
+    if (
+        roomNo &&
+        typeof getRoomCategory === "function" &&
+        getRoomCategory(roomNo) &&
+        typeof getRoomOccupancyRule === "function"
+    ) {
+
+        limit = getRoomOccupancyRule(roomNo).maxChildren;
+    }
+
+    /* Children can never exceed the total in the room */
+
+    limit = Math.min(limit, pax);
+
+    return limit < 0 ? 0 : limit;
+}
+
+
 function renderChildAges(row, existingAges) {
 
     if (!row) return;
@@ -2941,13 +2911,24 @@ function renderChildAges(row, existingAges) {
 
     if (!container || !countInput) return;
 
+    const limit = getChildLimit(row);
+
     let count = Number(countInput.value) || 0;
 
     if (count < 0) count = 0;
 
-    if (count > 9) count = 9;
+    if (count > limit) count = limit;
 
     countInput.value = count;
+
+    countInput.max = limit;
+
+    countInput.title =
+        limit === 0
+            ? "No children allowed for this room"
+            : "Maximum " + limit + " child(ren)";
+
+    countInput.classList.toggle("input-capped", limit === 0);
 
     const previous =
         existingAges ||
@@ -2973,8 +2954,6 @@ function renderChildAges(row, existingAges) {
 
     }
 }
-
-
 /* =====================================================
    AUTO FILL PAX FROM ROOM CATEGORY
 ===================================================== */
@@ -3038,11 +3017,6 @@ function getRowCapacityError(row) {
     if (!category) return "";
 
     const rule = getRoomOccupancyRule(row.roomNo);
-
-    if (row.children > row.pax) {
-
-        return "CHILDREN > PAX";
-    }
 
     if (row.pax > rule.maxOccupancy) {
 
@@ -3142,6 +3116,26 @@ function handleRegisterInput(event) {
         if (
             event.target.classList &&
             event.target.classList.contains("childCount")
+        ) {
+
+            renderChildAges(row);
+        }
+
+        /* Pax changed — children may now exceed the room */
+
+        if (
+            cell &&
+            cell.cellIndex === REGISTER_COLUMNS.PAX
+        ) {
+
+            renderChildAges(row);
+        }
+
+        /* Room changed — occupancy rule changed with it */
+
+        if (
+            cell &&
+            cell.cellIndex === REGISTER_COLUMNS.ROOM
         ) {
 
             renderChildAges(row);
@@ -3387,50 +3381,3 @@ document.addEventListener(
     "DOMContentLoaded",
     initializeApplication
 );
-/* =====================================================
-   COLLAPSIBLE PANELS
-===================================================== */
-
-function togglePanel(panelId, buttonId, labelWhenOpen, labelWhenShut) {
-
-    const panel =
-        document.getElementById(panelId);
-
-    const button =
-        document.getElementById(buttonId);
-
-    if (!panel) return;
-
-    const isOpen =
-        panel.classList.toggle("panel-open");
-
-    if (button) {
-
-        button.textContent =
-            isOpen ? labelWhenOpen : labelWhenShut;
-
-        button.classList.toggle("toggle-on", isOpen);
-    }
-}
-
-
-function toggleNotes() {
-
-    togglePanel(
-        "notesPanel",
-        "btnToggleNotes",
-        "▴ Hide Notes",
-        "▾ Notes"
-    );
-}
-
-
-function toggleBulkImport() {
-
-    togglePanel(
-        "bulkImportPanel",
-        "btnToggleBulkImport",
-        "▴ Hide Bulk Import",
-        "▾ Bulk Import"
-    );
-}

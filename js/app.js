@@ -3065,6 +3065,52 @@ function getRowCapacityError(row) {
    REGISTER EVENTS
 ===================================================== */
 
+function initializeRegisterEvents() {
+
+    const body = getRegisterBody();
+
+    if (body) {
+
+        body.addEventListener(
+            "keydown",
+            handleRegisterKeydown
+        );
+
+        body.addEventListener(
+            "beforeinput",
+            handleRegisterBeforeInput
+        );
+
+        body.addEventListener(
+            "input",
+            handleRegisterInput
+        );
+
+        body.addEventListener(
+            "change",
+            handleRegisterInput
+        );
+
+        body.addEventListener(
+            "focusout",
+            handleRegisterCleanup
+        );
+    }
+
+    document
+        .getElementById("btnGenerateRows")
+        ?.addEventListener("click", generateRows);
+
+    document
+        .getElementById("btnAddRow")
+        ?.addEventListener("click", addRow);
+
+    document
+        .getElementById("btnProcessImport")
+        ?.addEventListener("click", processBulkImport);
+}
+
+
 function handleRegisterInput(event) {
 
     const row =
@@ -3077,8 +3123,6 @@ function handleRegisterInput(event) {
         const cell =
             event.target.closest("td");
 
-        /* Mark pax as manually edited */
-
         if (
             cell &&
             cell.cellIndex === REGISTER_COLUMNS.PAX
@@ -3087,8 +3131,6 @@ function handleRegisterInput(event) {
             row.dataset.paxTouched = "1";
         }
 
-        /* Room typed — pull the default occupancy */
-
         if (
             cell &&
             cell.cellIndex === REGISTER_COLUMNS.ROOM
@@ -3096,8 +3138,6 @@ function handleRegisterInput(event) {
 
             autoFillPaxFromRoom(row);
         }
-
-        /* Child count changed — redraw age boxes */
 
         if (
             event.target.classList &&
@@ -3114,7 +3154,6 @@ function handleRegisterInput(event) {
     scheduleAutoSave();
 
 }
-
 /* =====================================================
    GROUP EVENTS
 ===================================================== */

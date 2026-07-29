@@ -1254,6 +1254,271 @@ function initializeRoomMaster() {
 
     initializeRoomMasterEvents();
 
+    initializeRoomMasterLock();
+
     renderRoomMaster();
 
+}
+/* =====================================================
+   ROOM MASTER ACCESS GUARD
+
+   Accident prevention, not security. The PIN lives in
+   localStorage and is readable by anyone with DevTools.
+   Real authentication arrives with the v1.1 backend.
+===================================================== */
+
+let roomMasterUnlocked = false;
+
+
+function hashPin(pin) {
+
+    let hash = 5381;
+
+    const text = "hgos:" + String(pin || "");
+
+    for (let i = 0; i < text.length; i++) {
+
+        hash = ((hash << 5) + hash + text.charCodeAt(i)) >>> 0;
+    }
+
+    return "p" + hash.toString(36);
+}
+
+
+function hasRoomMasterPin() {
+
+    return !!(DB.settings && DB.settings.roomMasterPinHash);
+}
+
+
+function isRoomMasterLocked() {
+
+    return hasRoomMasterPin() && !roomMasterUnlocked;
+}
+
+
+function applyRoomMasterLock() {
+
+    const page =
+        document.getElementById("roomMasterPage");
+
+    const lock =
+        document.getElementById("roomMasterLock");
+
+    if (!page || !lock) return;
+
+    const locked = isRoomMasterLocked();
+
+    page.classList.toggle("page-locked", locked);
+
+    lock.style.display = locked ? "block" : "none";
+
+    if (locked) {
+
+        const input =
+            document.getElementById("roomMasterPinInput");
+
+        if (input) {
+
+            input.value = "";
+
+            setTimeout(() => input.focus(), 60);
+        }
+    }
+}
+
+
+function submitRoomMasterPin() {
+
+    const input =
+        document.getElementById("roomMasterPinInput");
+
+    const message =
+        document.getElementById("roomMasterPinMessage");
+
+    if (!input) return;
+
+    const entered = input.value.trim();
+
+    if (
+        hashPin(entered) === DB.settings.roomMasterPinHash
+    ) {
+
+        roomMasterUnlocked = true;
+
+        if (message) message.textContent = "";
+
+        applyRoomMasterLock();
+
+        renderRoomMaster();
+
+        return;
+    }
+
+    if (message) {
+
+        message.textContent = "Incorrect PIN.";
+    }
+
+    input.value = "";
+
+    input.focus();
+}
+
+
+function lockRoomMaster() {
+
+    roomMasterUnlocked = false;
+
+    applyRoomMasterLock();
+}
+
+
+/* ---------- Settings Actions ---------- */
+
+function setRoomMasterPin() {
+
+    const first =
+        prompt("Enter a new 4-digit Manager PIN:");
+
+    if (first === null) return;
+
+    const pin = first.trim();
+
+    if (!/^\d{4}$/.test(pin)) {
+
+        alert("The PIN must be exactly 4 digits.");
+
+        return;
+    }
+
+    const confirmPin =
+        prompt("Re-enter the PIN to confirm:");
+
+    if (confirmPin === null) return;
+
+    if (confirmPin.trim() !== pin) {
+
+        alert("The two PINs did not match.");
+
+        return;
+    }
+
+    DB.settings.roomMasterPinHash = hashPin(pin);
+
+    saveDatabase();
+
+    roomMasterUnlocked = true;
+
+    renderPinStatus();
+
+    alert(
+        "Manager PIN set.\n\n" +
+        "Room Master will ask for it after every reload."
+    );
+}
+
+
+function removeRoomMasterPin() {
+
+    if (!hasRoomMasterPin()) return;
+
+    const entered =
+        prompt("Enter the current PIN to remove it:");
+
+    if (entered === null) return;
+
+    if (
+        hashPin(entered.trim()) !==
+        DB.settings.roomMasterPinHash
+    ) {
+
+        alert("Incorrect PIN.");
+
+        return;
+    }
+
+    delete DB.settings.roomMasterPinHash;
+
+    saveDatabase();
+
+    roomMasterUnlocked = false;
+
+    renderPinStatus();
+
+    applyRoomMasterLock();
+}
+
+
+function renderPinStatus() {
+
+    const status =
+        document.getElementById("pinStatus");
+
+    const setButton =
+        document.getElementById("btnSetPin");
+
+    const removeButton =
+        document.getElementById("btnRemovePin");
+
+    if (status) {
+
+        status.textContent =
+            hasRoomMasterPin()
+                ? "PIN is set. Room Master is protected."
+                : "No PIN set. Room Master is open to everyone.";
+
+        status.className =
+            "muted-note " +
+            (hasRoomMasterPin() ? "pin-on" : "pin-off");
+    }
+
+    if (setButton) {
+
+        setButton.textContent =
+            hasRoomMasterPin() ? "Change PIN" : "Set PIN";
+    }
+
+    if (removeButton) {
+
+        removeButton.style.display =
+            hasRoomMasterPin() ? "" : "none";
+    }
+}
+
+
+function initializeRoomMasterLock() {
+
+    document
+        .getElementById("btnUnlockRoomMaster")
+        ?.addEventListener("click", submitRoomMasterPin);
+
+    document
+        .getElementById("roomMasterPinInput")
+        ?.addEventListener("keydown", function (event) {
+
+            if (event.key === "Enter") {
+
+                event.preventDefault();
+
+                submitRoomMasterPin();
+            }
+
+        });
+
+    document
+        .getElementById("btnLockRoomMaster")
+        ?.addEventListener("click", lockRoomMaster);
+
+    document
+        .getElementById("btnSetPin")
+        ?.addEventListener("click", setRoomMasterPin);
+
+    document
+        .getElementById("btnRemovePin")
+        ?.addEventListener("click", removeRoomMasterPin);
+
+    renderPinStatus();
+
+    applyRoomMasterLock();
 }

@@ -18,7 +18,14 @@
 
 const STORAGE_KEY = "hotel_group_operations_v5";
 
+/* Bump when the stored shape changes, then add a
+   migration step in migrateDatabase(). */
+
+const SCHEMA_VERSION = 2;
+
 const DEFAULT_DB = {
+
+    schemaVersion: SCHEMA_VERSION,
 
     groups: [],
 
@@ -44,7 +51,119 @@ const DEFAULT_DB = {
 };
 
 let DB = loadDatabase();
+/* =====================================================
+   TIMESTAMPS
 
+   Stored as ISO 8601 (2026-07-28T03:49:33.000Z) so they
+   sort correctly, survive any locale, and can be handed
+   to an API or SQL column unchanged.
+===================================================== */
+
+function nowISO() {
+
+    return new Date().toISOString();
+}
+
+
+function toISOTimestamp(value) {
+
+    if (!value) return nowISO();
+
+    /* Already ISO */
+
+    if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+
+        return value;
+    }
+
+    /* Legacy en-IN format: 28/07/2026, 3:49:33 am */
+
+    const match =
+        String(value).match(
+            /^(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s+(\d{1,2}):(\d{2}):(\d{2})\s*(am|pm)?/i
+        );
+
+    if (match) {
+
+        let hour = Number(match[4]);
+
+        const suffix = (match[7] || "").toLowerCase();
+
+        if (suffix === "pm" && hour < 12) hour += 12;
+
+        if (suffix === "am" && hour === 12) hour = 0;
+
+        const parsed =
+            new Date(
+                Number(match[3]),
+                Number(match[2]) - 1,
+                Number(match[1]),
+                hour,
+                Number(match[5]),
+                Number(match[6])
+            );
+
+        if (!isNaN(parsed.getTime())) {
+
+            return parsed.toISOString();
+        }
+    }
+
+    const fallback = new Date(value);
+
+    return isNaN(fallback.getTime())
+        ? nowISO()
+        : fallback.toISOString();
+}
+
+
+function formatTimestamp(value) {
+
+    if (!value) return "";
+
+    const date = new Date(value);
+
+    return isNaN(date.getTime())
+        ? String(value)
+        : date.toLocaleString();
+}
+
+
+/* =====================================================
+   SCHEMA MIGRATION
+===================================================== */
+
+function migrateDatabase(db) {
+
+    const from = Number(db.schemaVersion) || 1;
+
+    if (from === SCHEMA_VERSION) return db;
+
+    /* ---------- 1 -> 2 : ISO timestamps ---------- */
+
+    if (from < 2) {
+
+        (db.groups || []).forEach(group => {
+
+            group.createdOn =
+                toISOTimestamp(group.createdOn);
+
+            group.modifiedOn =
+                toISOTimestamp(group.modifiedOn);
+
+        });
+
+        console.log(
+            "Migrated " +
+            (db.groups || []).length +
+            " group(s) to ISO timestamps."
+        );
+    }
+
+    db.schemaVersion = SCHEMA_VERSION;
+
+    return db;
+}
 
 /* =====================================================
    LOAD DATABASE
@@ -83,7 +202,7 @@ function loadDatabase() {
                 structuredClone(DEFAULT_DB.settings);
         }
 
-        return parsed;
+        return migrateDatabase(parsed);
 
     } catch (error) {
 
@@ -361,9 +480,17 @@ function switchPage(pageId) {
             `[data-tab="${pageId}"]`
         );
 
-    if (activeTab) {
+  if (activeTab) {
 
         activeTab.classList.add("active");
+    }
+
+    if (
+        pageId === "roomMasterPage" &&
+        typeof applyRoomMasterLock === "function"
+    ) {
+
+        applyRoomMasterLock();
     }
 }
 
@@ -1513,7 +1640,7 @@ function saveCurrentGroup() {
         return;
     }
 
-    const now = new Date().toLocaleString();
+   const now = nowISO();
 
     const existing =
         GroupRepository
@@ -1725,7 +1852,11 @@ function exportGroupJSON() {
         return;
     }
 
-    const group = getCurrentGroupData();
+   const group = getCurrentGroupData();
+
+    group.schemaVersion = SCHEMA_VERSION;
+
+    group.exportedAt = nowISO();
 
     const blob =
         new Blob(
@@ -2443,6 +2574,10 @@ function renderSavedGroups() {
 
     <td>${group.totalRooms || 0}</td>
 
+    <td class="timestamp-cell">
+        ${formatTimestamp(group.modifiedOn)}
+    </td>
+
     <td>
         <button onclick="openSavedGroup(${entry.realIndex})">
             Open
@@ -2461,8 +2596,8 @@ function renderSavedGroups() {
 
     if (!body.innerHTML.trim()) {
 
-        body.innerHTML =
-            `<tr><td colspan="5">No saved groups.</td></tr>`;
+    body.innerHTML =
+            `<tr><td colspan="6">No saved groups.</td></tr>`;
     }
 }
 
@@ -3322,6 +3457,10 @@ function saveApplication() {
 ===================================================== */
 
 function initializeApplication() {
+
+    /* ---------- Dialogs ---------- */
+
+    initializeDialogs();
 
     /* ---------- Settings & Branding ---------- */
 

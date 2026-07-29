@@ -291,6 +291,7 @@
                         <th>Arrival</th>
                         <th>Status</th>
                         <th>Rooms</th>
+                        <th>Last Modified</th>
                         <th>Action</th>
                     </tr>
 
@@ -596,8 +597,37 @@
 
 <section id="roomMasterPage" class="page">
 
+    <div id="roomMasterLock" class="lock-screen" style="display:none;">
+
+        <div class="lock-box">
+
+            <div class="lock-icon">🔒</div>
+
+            <h3>Room Master is protected</h3>
+
+            <p class="muted-note">
+                Enter the Manager PIN to change room
+                categories and occupancy rules.
+            </p>
+
+            <input
+                type="password"
+                id="roomMasterPinInput"
+                inputmode="numeric"
+                maxlength="4"
+                placeholder="••••">
+
+            <button id="btnUnlockRoomMaster">Unlock</button>
+
+            <p class="muted-note" id="roomMasterPinMessage"></p>
+
+        </div>
+
+    </div>
+
     <div class="page-title">
         <h2>Room Master</h2>
+        <button id="btnLockRoomMaster" class="lock-button">🔒 Lock</button>
     </div>
 
     <p class="muted-note">
@@ -961,6 +991,31 @@
 
         <!-- ---------- DATA BACKUP ---------- -->
 
+       <div class="dashboard-panel">
+
+            <h3>Manager PIN</h3>
+
+            <p class="muted-note">
+                Protects Room Master from accidental changes
+                during a shift. This is not security — anyone
+                with browser developer tools can bypass it.
+                Proper accounts arrive with the database backend.
+            </p>
+
+            <p class="muted-note" id="pinStatus"></p>
+
+            <div class="action-bar">
+
+                <button id="btnSetPin">Set PIN</button>
+
+                <button id="btnRemovePin" style="display:none;">
+                    Remove PIN
+                </button>
+
+            </div>
+
+        </div>
+
         <div class="dashboard-panel">
 
             <h3>Data Backup</h3>
@@ -1011,12 +1066,52 @@
 
 </footer>
 
+<!-- =====================================================
+     APPLICATION DIALOG
+===================================================== -->
+
+<div id="appDialog" class="dialog-overlay" style="display:none;">
+
+    <div id="appDialogBox" class="dialog-box">
+
+        <h3 id="appDialogTitle">Notice</h3>
+
+        <p id="appDialogMessage"></p>
+
+        <div id="appDialogInputWrap" style="display:none;">
+
+            <label class="sr-label" for="appDialogInput">
+                Value
+            </label>
+
+            <input type="text" id="appDialogInput">
+
+        </div>
+
+        <p id="appDialogError" class="dialog-error"></p>
+
+        <div class="dialog-actions">
+
+            <button id="appDialogCancel" class="dialog-btn dialog-cancel">
+                Cancel
+            </button>
+
+            <button id="appDialogOk" class="dialog-btn dialog-ok">
+                OK
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
 
 <!-- =====================================================
      SCRIPTS
      Load order matters. app.js must be last.
 ===================================================== -->
 
+<script src="js/dialog.js?v=1"></script>
 <script src="js/printing.js?v=1"></script>
 <script src="js/room-master.js?v=1"></script>
 <script src="js/reports.js?v=2"></script>

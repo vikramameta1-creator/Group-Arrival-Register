@@ -2051,11 +2051,14 @@ body{
 
 /* ---------- STICKY REGISTER ---------- */
 
+/* One scrollbar only. The page scrolls; the header row
+   sticks to the top of the viewport. overflow must stay
+   visible or the container becomes a scroll context and
+   sticky positioning breaks. */
+
 .register-scroll{
 
-    max-height:58vh;
-
-    overflow-y:auto;
+    overflow:visible;
 
     padding-top:0;
 
@@ -2926,5 +2929,96 @@ body{
 #appDialogBox.dialog-danger h3{
 
     color:#dc3545;
+
+}
+/* =====================================================
+   REGISTER SEARCH
+===================================================== */
+
+.register-search-bar{
+
+    display:flex;
+
+    flex-wrap:wrap;
+
+    align-items:center;
+
+    gap:10px;
+
+    background:var(--white);
+
+    border:1px solid var(--border);
+
+    border-radius:var(--radius);
+
+    padding:10px 12px;
+
+    margin-bottom:12px;
+
+}
+
+.register-search-bar input{
+
+    flex:1;
+
+    min-width:220px;
+
+    padding:9px 12px;
+
+    border:1px solid var(--border);
+
+    border-radius:8px;
+
+    font-size:14px;
+
+}
+
+.register-search-bar input:focus{
+
+    outline:none;
+
+    border-color:var(--primary);
+
+    box-shadow:0 0 0 3px rgba(31,78,121,.18);
+
+}
+
+.register-search-bar button{
+
+    border:none;
+
+    background:var(--muted);
+
+    color:var(--white);
+
+    padding:9px 16px;
+
+    border-radius:8px;
+
+    cursor:pointer;
+
+    font-size:13px;
+
+}
+
+.register-search-bar button:hover{
+
+    background:var(--text);
+
+}
+
+#registerSearchStatus{
+
+    margin:0;
+
+    white-space:nowrap;
+
+}
+
+#registerSearchStatus.filter-on{
+
+    color:var(--primary);
+
+    font-weight:700;
 
 }

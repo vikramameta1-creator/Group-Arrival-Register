@@ -472,7 +472,22 @@
 
     <!-- ---------- REGISTER TABLE ---------- -->
 
-    <div class="table-container register-scroll">
+  <div class="register-search-bar">
+
+        <label class="sr-label" for="registerSearch">
+            Search the register
+        </label>
+
+        <input
+            type="text"
+            id="registerSearch"
+            placeholder="🔍  Search room, guest, mobile or request...">
+
+        <button id="btnClearRegisterSearch">Clear</button>
+
+        <span class="muted-note" id="registerSearchStatus"></span>
+
+    </div>
 
         <table
             id="arrivalRegisterTable"
@@ -1116,13 +1131,15 @@
      Bump every ?v= number together after replacing
      any module file.
 ===================================================== -->
-
-<script src="js/dialog.js?v=9"></script>
-<script src="js/printing.js?v=9"></script>
-<script src="js/room-master.js?v=9"></script>
-<script src="js/reports.js?v=9"></script>
-<script src="js/app.js?v=9"></script>
-<script src="js/shortcuts.js?v=9"></script>
+<script src="js/dialog.js?v=12"></script>
+<script src="js/database.js?v=12"></script>
+<script src="js/printing.js?v=12"></script>
+<script src="js/room-master.js?v=12"></script>
+<script src="js/register.js?v=12"></script>
+<script src="js/dashboard.js?v=12"></script>
+<script src="js/reports.js?v=12"></script>
+<script src="js/app.js?v=12"></script>
+<script src="js/shortcuts.js?v=12"></script>
 
 </body>
 

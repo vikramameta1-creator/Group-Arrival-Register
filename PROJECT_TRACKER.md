@@ -1,66 +1,58 @@
 # PROJECT_TRACKER.md
-## Hotel Group Operations Suite — Living Status
+## Group Arrival Register — Living Status
 
-**Version:** v1.0.0 RC1 (in progress)
-**Last updated:** 28 July 2026
-**Completion:** ~88%
+**Version:** v1.0.0 RC1
+**Last updated:** 29 July 2026
+**Completion:** ~90%
 
-Spec and coding rules live in `CLAUDE.md`.
-
----
-
-# ⚠️ 1. RESUME HERE — BROKEN STATE
-
-`js/app.js` currently throws:
-
-```
-Uncaught ReferenceError: initializeRegisterEvents is not defined
-```
-
-**Cause:** during RM5b Patch 7, the replacement of
-`handleRegisterInput()` also removed `initializeRegisterEvents()`.
-Both live in the `REGISTER EVENTS` section.
-
-**Fix:** restore the complete `REGISTER EVENTS` section
-(`initializeRegisterEvents` + `handleRegisterInput`).
-
-**Then verify** every RM5b function exists:
-
-```javascript
-["initializeRegisterEvents","handleRegisterInput","handleRegisterKeydown",
- "handleRegisterBeforeInput","handleRegisterCleanup","renderChildAges",
- "autoFillPaxFromRoom","getRowCapacityError","getInvalidRooms",
- "updateRegisterCategories","scheduleAutoSave"]
-.forEach(f => console.log(typeof window[f] === "function" ? "OK   " : "MISS ", f));
-```
-
-All must read OK. If any MISS, replace `app.js` wholesale
-rather than patching further.
-
-**Note:** this broken state was committed. Fix and commit
-again before starting new work.
+Architecture, coding rules and locked decisions live in
+`CLAUDE.md`. This file tracks state, progress and open work.
 
 ---
 
-# 2. CURRENT FILES
+# 1. STATE — HEALTHY
+
+Console clean. No known bugs. All phases through E3 tested.
 
 ```
 d:\vikram\group arrival\
-├── Group_Arrival_Register.html
-├── css/style.css                  ~1400 lines
+├── Group_Arrival_Register.html    28,560 b
+├── css/style.css                  ~25,000 b
 ├── js/
-│   ├── printing.js     14,230 b   loads 1st
-│   ├── room-master.js  24,336 b   loads 2nd
-│   ├── reports.js      26,676 b   loads 3rd
-│   └── app.js          ~63,000 b  loads 4th   ⚠ BROKEN
+│   ├── dialog.js       9,188 b    loads 1st
+│   ├── printing.js    14,230 b    loads 2nd
+│   ├── room-master.js 30,340 b    loads 3rd
+│   ├── reports.js     25,486 b    loads 4th
+│   ├── app.js         69,527 b    loads 5th
+│   └── shortcuts.js    6,824 b    loads LAST
 ├── CLAUDE.md
 ├── PROJECT_TRACKER.md
 └── jsconfig.json
 ```
 
-Script tags carry cache busters (`?v=1`). **Bump the number
-every time a module file is replaced** — Live Server caches
-scripts aggressively.
+All six script tags carry the **same** `?v=N`. Bump all of them
+after replacing any file. The HTML caches too — use DevTools →
+Network → Disable cache while developing.
+
+---
+
+# 2. SUITE CONTEXT
+
+A second application, **HKIM** (Hotel Key Inventory Management),
+is in development — a key register with ~20 modules, an immutable
+transaction ledger, audit log, business days and shifts.
+
+**Decision: ship both standalone at v1.0, merge at v2.0.**
+
+Shared database shape is agreed on paper (see `CLAUDE.md` §2):
+`property`, `rooms`, `users` and `audit` become shared; `arrivals`
+and `keys` stay owned by their app.
+
+Five collisions to resolve at merge — two databases, two sources
+of truth for rooms, two hotel identities, colliding global
+function names, and disagreeing schema versions.
+
+**Do not start the merge before both apps ship.**
 
 ---
 
@@ -68,179 +60,188 @@ scripts aggressively.
 
 | Phase | Work |
 |---|---|
-| M1–M13 | Printing extracted · unified bootstrap · app.js rebuild · HTML rebuild · print engine rewrite · draft banner · input rules · keyboard nav · column mapping · schema guard |
-| RM1 | Room Master: categories, inventory, ranges, bulk import |
+| M1 | Printing extracted to `js/printing.js` |
+| M2 | Unified bootstrap — five startup blocks removed |
+| M3 | `app.js` rebuilt — saved-group index bug, UTC date bug, dead code |
+| M4 | HTML rebuild — layout, grouped actions, backup UI |
+| M5 | Responsive grid fixes |
+| M6 | Print engine rewrite — headers, totals, shared form layout |
+| M7 | Draft banner, shared-room save warning |
+| M8 | Register input rules, numeric room toggle |
+| M9 | Register keyboard navigation, whitespace cleanup |
+| M10–M13 | Column alignment, room master enforcement, meal dash, debounced autosave, schema guard, guest name limits |
+| RM1 | Room Master — categories, inventory, ranges, bulk import |
 | RM2 | Live category lookup in register and rooming list |
 | RM3 | **Cancelled** — category is screen-only, never printed |
 | RM4 | Category occupancy, per-date occupancy, double-booking detection |
 | RM5a | Room Master occupancy rules per category |
-| RM5b | **INCOMPLETE** — register capacity, children, auto-fill |
+| RM5b | Register capacity, children with ages, pax auto-fill |
+| RM5c | Hard-capped children, save confirmation toast |
 | R1 | Reports scope toggle, empty states, empty-row rule |
-| R2 | Report filters: date range, status, agent |
+| R2 | Report filters — date range, status, agent |
 | R3 | Reports verified — 24/24 against seed dataset |
-| E1 | Register layout: collapsible panels, toolbar, sticky headers |
+| SEC1 | Room Master manager PIN |
+| DATA1 | ISO timestamps, schema version, migration framework |
+| E1 | Register layout — collapsible panels, toolbar, sticky headers |
+| E2a | In-page dialog engine |
+| E2b | All native alerts replaced across both files |
+| E3 | Keyboard shortcuts |
 
 ---
 
-# 4. RM5b — WHAT IT DOES (once fixed)
+# 4. MODULE STATUS
 
-**Column map is now 9 wide:**
-
-```
-SR 0 · ROOM 1 · CATEGORY 2 · GUEST 3 · PAX 4
-CHILDREN 5 · MEAL 6 · MOBILE 7 · EXTRA 8
-```
-
-**Occupancy model — the anti-hack:**
-Max Occupancy caps the TOTAL people in a room. Children are a
-subset of pax, never an addition. `adults = pax − children`.
-Raising Children can never raise Pax, so moving a person from
-the adult column to the child column cannot create space.
-
-**Behaviour:**
-- Type a room → Pax auto-fills from that category's Default Adults
-- Editing Pax sets `row.dataset.paxTouched` so auto-fill stops
-- Children count N → N age boxes appear (0–17), values preserved
-- Red cell + blocked Save on: NOT IN MASTER, DUPLICATE,
-  MAX n PAX, MAX n CHILD, MAX n ADULTS
-
-**Test once fixed** (Deluxe: Default 2 / Max Adults 2 /
-Max Children 1 / Max Occupancy 3):
-
-1. Type `101` → Pax auto-fills to 2
-2. Pax 3, Children 1 → valid
-3. Pax 4 → red, MAX 3 PAX
-4. Pax 3, Children 2 → red, MAX 1 CHILD
-5. Pax 3, Children 0 → red, MAX 2 ADULTS
-6. Children 2 → two age boxes; enter 7 and 11; F5 → persist
-7. Two rows both `101` → second shows DUPLICATE
-8. Save with any error → blocked with numbered list
-9. Print, CSV, Reports still correct
+| Module | State |
+|---|---|
+| Database + Repositories | Complete |
+| Navigation | Complete |
+| Settings, branding, backup | Complete |
+| Arrival Register | Complete |
+| Room Master + occupancy | Complete |
+| Rooming List | Complete |
+| Dashboard | Complete |
+| Printing | Complete |
+| Reports | Complete, verified |
+| Autosave + draft recovery | Complete |
+| Dialogs | Complete |
+| Keyboard shortcuts | Complete |
+| Manager PIN | Complete |
+| Modularization | 5 of 9 modules extracted |
+| Documentation | Not started |
+| Packaging | Not started |
 
 ---
 
 # 5. REMAINING WORK
 
-### Immediate
-- Fix `initializeRegisterEvents`, test RM5b, commit
+### Sprint D — Modularization (4 phases) ← NEXT
 
-### Sprint E — UI and workflow (2 phases)
-- `E2` replace all 24 `alert` / `prompt` / `confirm` with
-  in-page dialogs. One `showDialog()` helper returning a
-  promise, then swap call sites in batches.
-- `E3` keyboard shortcuts: Ctrl+S save, Ctrl+P print,
-  Ctrl+N add row, Esc close dialog
+| Phase | New file | Moves out | Lines |
+|---|---|---|---|
+| D1 | `js/database.js` | `STORAGE_KEY`, `SCHEMA_VERSION`, `DEFAULT_DB`, `DB`, timestamps, `migrateDatabase`, load/save, `GroupRepository` | ~320 |
+| D2 | `js/register.js` | `REGISTER_COLUMNS`, row template, input rules, keyboard nav, children, capacity, summary, rooming sync, validation | ~1100 |
+| D3 | `js/dashboard.js` | KPIs, control center, arrival cards, saved groups | ~450 |
+| D4 | `js/groups.js` | save/open/delete, JSON, CSV, bulk import, autosave, draft banner | ~520 |
 
-### Sprint D — Modularization (4 phases, option B)
-```
-D1  js/database.js    DB, load/save, GroupRepository   ~180
-D2  js/register.js    columns, rows, rules, summary    ~1000
-D3  js/dashboard.js   KPIs, cards, saved groups        ~450
-D4  js/groups.js      save/open/delete, import/export  ~520
-```
-`database.js` must load first. `app.js` ends around 550 lines.
-Settings and utilities stay in `app.js` — small and stable.
+`database.js` must load **first** — it owns `DB`.
+`app.js` ends around 550 lines: navigation, settings,
+controllers, professional tools, bootstrap.
+
+Move one, test with the full regression checklist, commit, next.
 
 ### Sprint F — Packaging (3 phases)
-- `F1` README.md + CHANGELOG.md
-- `F2` refresh PROJECT_TRACKER.md and CLAUDE.md
-- `F3` version constant in footer and printed documents,
-  tag `v1.0.0`
+
+- `F1` README.md (what it does, how to run, browser requirements,
+  backup warning) + CHANGELOG.md
+- `F2` refresh CLAUDE.md and PROJECT_TRACKER.md to final state
+- `F3` `APP_VERSION` constant surfaced in the footer and every
+  printed document, then tag `v1.0.0`
 
 ### Then
-RC1 → soak test on one real group arrival → **Version 1.0**
+RC1 → **soak test on one real group arrival** → v1.0
 
 ---
 
 # 6. OPEN ITEMS
 
 ## 🟡 Before v1.0
-- `printRoomingList()` column widths never visually verified
+
+- `printRoomingList()` column widths were rewritten in M6 but
+  never visually verified against a real printout
 - Cosmetic CSS debt: duplicate selectors (`.app-footer`,
-  `.settings-grid`, two `TABLES` headers), dead rules
-  (`.dashboard-card:nth-child(5)`–`(7)`, `.no-print`),
-  top-level `@page` outside `@media print`,
+  `.settings-grid`, two `TABLES` headers, two `PRINT RESET`
+  headers), dead rules (`.dashboard-card:nth-child(5)`–`(7)`,
+  `.no-print`), top-level `@page` outside `@media print`,
   no `:focus-visible` styles
+- `DB.settings.showRoomCategory` is unused since RM3 was cancelled
 
 ## 🟢 Version 1.1
+
 - **Departure date / nights** — occupancy is arrival-date only
-  without it; a 3-night group reads as one day
+  without it; a 3-night group reads as occupying rooms for one day
 - Multi-guest per room as structured data (nested `guests[]`)
-- Child rate fraud is a management/audit problem, not a code
-  one — the v1.1 audit trail addresses it
+- Real authentication — the Manager PIN is an accident guard,
+  not security
+- Audit trail — child-rate fudging is a management problem; an
+  audit log makes it visible
 - Cloud sync · user accounts · undo · advanced search ·
   database backend · installer · multi-user · ESLint
 
+## v2.0
+
+- Suite merge with HKIM (see `CLAUDE.md` §2)
+
 ---
 
-# 7. DECISIONS LOG
+# 7. TEST DATA
 
-| Decision | Outcome |
+A seed script plants 3 groups / 25 rooms / 55 pax and a 20-room
+master. A verification script checks 24 figures.
+
+**Back up first:** Settings → Data Backup → Download Backup.
+
+Expected headline numbers:
+
+| | |
 |---|---|
-| Folder | `js/`, not `modules/` |
-| Entry file | `Group_Arrival_Register.html` |
-| Room model | Inventory-first — rooms exist with or without a category |
-| Occupancy cap | **Total occupants**, not adults — children are a subset of pax |
-| Children | Count per row + one age box each (0–17) |
-| Pax auto-fill | From category Default Adults, stops once manually edited |
-| Duplicate rooms | **Hard block** on save (reversed from earlier warn-and-allow) |
-| Over-capacity | **Hard block** on save |
-| Category on screen | Arrival Register and Rooming List |
-| Category on print | **Never** |
-| Unmapped rooms | Silent grey dash |
-| Rooms outside master | Red cell, `NOT IN MASTER`, blocked |
-| Room numbers | Numeric max 3 digits; toggleable to free text |
-| Guest name | Max 60 chars; Special Request max 80 |
-| Unsaved draft | Restore + Keep/Discard banner, schema-versioned |
-| Reports scope | Current Group and All Groups, with filters |
-| Report periods | No weekly / monthly / yearly rollups |
-| Sprint order | E before D; D limited to 4 modules |
+| All Groups | 3 groups · 25 rooms · 55 pax · 3 VIP |
+| Meals | EP 8 · CP 18 · MAP 18 · AP 8 · Not Set 3 · Covers 52 |
+| Inventory | Deluxe 10 · Super Deluxe 6 · Suite 3 · Unassigned 1 |
+| Occupancy | 08-10 → 8/20 40% · 08-15 → 12/20 60% · 08-20 → 5/20 25% |
+| Current Group (Sharma Wedding) | 8 rooms · 16 pax · 2 VIP · Deluxe 8/10 |
+
+Deluxe shows 15 room-nights booked against 10 physical rooms —
+correct, because 101–105 are used on two different dates.
 
 ---
 
-# 8. REGRESSION CHECKLIST
+# 8. PROCESS NOTES — LEARNED THE HARD WAY
 
-Run before every commit touching the register or groups.
+**Six of the last twenty phases lost a round to a patch not
+landing.** Causes, in order of frequency:
 
-1. Console clean — two lines, nothing red
-2. Six tabs switch
-3. Add Row → one row · Generate Rows 5 → five rows
-4. Room rejects letters and a 4th digit · Pax caps at 2 digits
-5. Enter moves down the same column, cells do not grow
-6. Every value under its own header (**9 columns** after RM5b)
-7. Mapped room → category fills and Pax auto-fills
-8. Over-capacity or duplicate → red cell, Save blocked
-9. Edit any field, wait 2s, F5 → value persists
-10. Save Group → F5 → still listed · search then Delete → correct group
-11. Print Register · Blank Register · Print Rooming List — no Category column
-12. Export JSON · CSV · Open Group · Bulk Import
-13. Room Master: ranges, bulk, rename, delete, occupancy rules, F5 persists
-14. Reports: four cards, both scopes, filters, 24/24 seed check
-15. Settings: logo, footer, both toggles, backup, restore
+1. A multi-step patch where one step was skipped
+2. A `FIND THIS` block whose whitespace didn't match
+3. A replacement that took an adjacent function's closing brace
+4. The file saved to the wrong place, or not saved at all
+5. Browser serving a cached script or HTML
 
----
+**Mitigations now in force:**
 
-# 9. TEST DATA
-
-A seed script exists that plants 3 groups / 25 rooms /
-55 pax and a 20-room master, with a verification script that
-checks 24 figures. Expected headline numbers:
-
-- All Groups: 3 groups · 25 rooms · 55 pax · 3 VIP
-- Meals: EP 8 · CP 18 · MAP 18 · AP 8 · Not Set 3 · Covers 52
-- Inventory: Deluxe 10 · Super Deluxe 6 · Suite 3 · Unassigned 1
-- Occupancy: 08-10 → 8/20 40% · 08-15 → 12/20 60% · 08-20 → 5/20 25%
-
-Back up via Settings → Download Backup before re-seeding.
+- Phases touching more than ~4 places in one file get a complete
+  file replacement instead of patches
+- Verify byte size on disk after every replacement:
+  `Get-ChildItem "js\*.js" | Select-Object Name, Length`
+- All six cache busters bump together
+- DevTools → Network → Disable cache while developing
+- After any register change, confirm `<thead>` count matches
+  `REGISTER_COLUMNS`
 
 ---
 
-# 10. GIT
+# 9. GIT
 
 One commit per completed phase. Never commit broken code
-(violated once — see section 1).
+(violated once, during RM5b; recovered).
 
 ```
-M1 … M13, RM1, RM2, RM4, R1, R2, R3, E1, RM5a
-RM5 - Room occupancy rules, capacity enforcement, children  ⚠ broken
+M1 … M13 · RM1 · RM2 · RM4 · RM5a · RM5b · RM5c
+R1 · R2 · R3 · SEC1 · DATA1 · E1 · E2a · E2b-1 · E2b-2 · E3
 ```
+
+Next commit: `docs - Rewrite CLAUDE.md and PROJECT_TRACKER.md to current state`
+
+---
+
+# 10. RESUMING
+
+Next action: **Sprint D, phase D1** — extract `js/database.js`.
+
+That file is the one a future PMS or suite merge will care about
+most, since it owns `DB`, the schema version, the migration hook
+and `GroupRepository`.
+
+Before starting, confirm:
+- Console clean, two lines
+- `git status` clean and pushed
+- Byte sizes on disk match section 1

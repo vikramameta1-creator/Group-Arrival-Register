@@ -2905,3 +2905,26 @@ body{
     background:#b02a37;
 
 }
+/* =====================================================
+   DIALOG DANGER STATE
+===================================================== */
+
+#appDialog .dialog-btn.dialog-ok.danger{
+
+    background:#dc3545;
+
+    color:#ffffff;
+
+}
+
+#appDialog .dialog-btn.dialog-ok.danger:hover{
+
+    background:#b02a37;
+
+}
+
+#appDialogBox.dialog-danger h3{
+
+    color:#dc3545;
+
+}

@@ -240,8 +240,10 @@ function saveDatabase() {
 
         showSaveFlash("Save failed", true);
 
-        alert(
-            "Unable to save data. Storage may be full."
+        showAlert(
+            "Unable to save. Browser storage may be full.\n\n" +
+            "Take a backup from Settings and clear old data.",
+            "Save Failed"
         );
     }
 }
@@ -607,7 +609,7 @@ function saveSettings() {
 
     updateBranding();
 
-    alert("Settings Saved");
+   showAlert("Settings saved.");
 }
 
 
@@ -934,7 +936,10 @@ function generateRows() {
 
     if (count <= 0) {
 
-        alert("Enter number of rooms");
+        showAlert(
+            "Enter how many rooms this group needs.",
+            "Room Count Required"
+        );
 
         return;
     }
@@ -1032,12 +1037,18 @@ function sortRooms() {
    AUTO ROOM SERIES
 ===================================================== */
 
-function autoGenerateRoomSeries() {
+async function autoGenerateRoomSeries() {
 
-    const startRoom =
-        prompt("Starting Room Number");
+    const startRoom = await showPrompt(
+        "Rooms will be numbered upward from here.",
+        "",
+        "Starting Room Number",
+        { inputType: "number", placeholder: "101" }
+    );
 
-    if (!startRoom) return;
+    if (startRoom === null) return;
+
+    if (!startRoom.trim()) return;
 
     const body = getRegisterBody();
 
@@ -1045,7 +1056,7 @@ function autoGenerateRoomSeries() {
 
     [...body.rows].forEach((row, index) => {
 
-       row.cells[REGISTER_COLUMNS.ROOM].innerText =
+        row.cells[REGISTER_COLUMNS.ROOM].innerText =
             Number(startRoom) + index;
 
     });
@@ -1053,55 +1064,25 @@ function autoGenerateRoomSeries() {
     refreshRegisterViews();
 }
 
-
 /* =====================================================
    CLEAR REGISTER
 ===================================================== */
 
-function clearRegisterFields() {
+async function clearRegister() {
 
-    const fields = [
-        "groupName",
-        "arrivalDate",
-        "agentCompany",
-        "preparedBy",
-        "groupNotes"
-    ];
+    const ok = await showConfirm(
+        "Clear the current register?\n\n" +
+        "Unsaved rows will be lost.",
+        "Clear Register",
+        { danger: true, okLabel: "Clear" }
+    );
 
-    fields.forEach(id => {
-
-        const el =
-            document.getElementById(id);
-
-        if (el) el.value = "";
-
-    });
-
-    const status =
-        document.getElementById("groupStatus");
-
-    if (status) status.value = "Pending";
-
-    const body = getRegisterBody();
-
-    if (body) body.innerHTML = "";
-
-    refreshRegisterViews();
-}
-
-
-function clearRegister() {
-
-    if (!confirm("Clear current register?")) {
-
-        return;
-    }
+    if (!ok) return;
 
     clearRegisterFields();
 
     toggleDraftBanner(false);
 }
-
 /* =====================================================
    EMPTY ROW RULE
 
@@ -1481,7 +1462,7 @@ function checkDuplicateRooms() {
    VALIDATION REPORT
 ===================================================== */
 
-function showValidationReport() {
+async function showValidationReport() {
 
     const report = validateRooms();
 
@@ -1490,7 +1471,7 @@ function showValidationReport() {
     if (report.duplicateRooms.length) {
 
         text +=
-            "Duplicate Rooms:\n" +
+            "Duplicate rooms:\n" +
             report.duplicateRooms.join(", ") +
             "\n\n";
     }
@@ -1498,19 +1479,22 @@ function showValidationReport() {
     if (report.duplicateGuests.length) {
 
         text +=
-            "Duplicate Guests:\n" +
-            report.duplicateGuests.join(", ") +
-            "\n\n";
+            "Duplicate guest names:\n" +
+            report.duplicateGuests.join(", ");
     }
 
     if (!text) {
 
-        text = "No Duplicates Found";
+        await showAlert(
+            "No duplicate rooms or guest names found.",
+            "Register Looks Good"
+        );
+
+        return;
     }
 
-    alert(text);
+    await showAlert(text.trim(), "Duplicates Found");
 }
-
 
 /* =====================================================
    COLLECT CURRENT GROUP
@@ -1612,13 +1596,16 @@ function loadGroupToScreen(group) {
    SAVE CURRENT GROUP
 ===================================================== */
 
-function saveCurrentGroup() {
+async function saveCurrentGroup() {
 
     const group = getCurrentGroupData();
 
     if (!group.groupName) {
 
-        alert("Enter Group Name");
+        await showAlert(
+            "Enter a group name before saving.",
+            "Group Name Required"
+        );
 
         return;
     }
@@ -1629,8 +1616,8 @@ function saveCurrentGroup() {
 
     if (problems.length > 0) {
 
-        alert(
-            "Cannot save. Fix these first:\n\n" +
+        await showAlert(
+            "Fix these before saving:\n\n" +
             problems.slice(0, 10).join("\n") +
             (problems.length > 10
                 ? "\n\nand " + (problems.length - 10) + " more"
@@ -1675,7 +1662,10 @@ function saveCurrentGroup() {
 
     refreshApplication();
 
-    alert("Group Saved Successfully");
+    showAlert(
+        "'" + group.groupName + "' has been saved.",
+        "Group Saved"
+    );
 }/* =====================================================
    OPEN SAVED GROUP
 ===================================================== */
@@ -1686,7 +1676,7 @@ function openSavedGroup(index) {
 
     if (!group) {
 
-        alert("Group not found.");
+        showAlert("Group not found.");
 
         return;
     }
@@ -1701,21 +1691,24 @@ function openSavedGroup(index) {
    DELETE SAVED GROUP
 ===================================================== */
 
-function deleteSavedGroup(index) {
+async function deleteSavedGroup(index) {
 
     const group = GroupRepository.get(index);
 
     if (!group) {
 
-        alert("Group not found.");
+        await showAlert("Group not found.");
 
         return;
     }
 
-    const ok = confirm(
+    const ok = await showConfirm(
         "Delete '" +
         (group.groupName || "Unnamed Group") +
-        "' permanently?"
+        "' permanently?\n\n" +
+        "This cannot be undone.",
+        "Delete Group",
+        { danger: true, okLabel: "Delete" }
     );
 
     if (!ok) return;
@@ -1725,38 +1718,43 @@ function deleteSavedGroup(index) {
     refreshApplication();
 }
 
-
 /* =====================================================
    GROUP SELECTOR
 ===================================================== */
 
-function openGroupSelector() {
+async function openGroupSelector() {
 
     if (GroupRepository.count() === 0) {
 
-        alert("No Saved Groups");
+        await showAlert(
+            "There are no saved groups yet.",
+            "Nothing To Open"
+        );
 
         return;
     }
 
-    let listText = "Saved Groups:\n\n";
+    let listText = "";
 
     GroupRepository
         .getAll()
         .forEach((group, index) => {
 
             listText +=
-                (index + 1) +
-                ". " +
+                (index + 1) + ". " +
                 (group.groupName || "Unnamed Group") +
                 "\n";
 
         });
 
-    const selected =
-        prompt(listText + "\nEnter Number");
+    const selected = await showPrompt(
+        listText + "\nEnter a number:",
+        "",
+        "Open Saved Group",
+        { inputType: "number" }
+    );
 
-    if (!selected) return;
+    if (selected === null) return;
 
     const index = Number(selected) - 1;
 
@@ -1766,7 +1764,7 @@ function openGroupSelector() {
         index >= GroupRepository.count()
     ) {
 
-        alert("Invalid Selection");
+        await showAlert("That is not a valid number.");
 
         return;
     }
@@ -1774,16 +1772,19 @@ function openGroupSelector() {
     openSavedGroup(index);
 }
 
-
 /* =====================================================
    SEARCH GROUPS
 ===================================================== */
 
-function searchGroups() {
+async function searchGroups() {
 
-    const search = prompt("Search Group");
+    const search = await showPrompt(
+        "Type part of a group name.",
+        "",
+        "Search Groups"
+    );
 
-    if (!search) return;
+    if (search === null || !search.trim()) return;
 
     const results =
         GroupRepository
@@ -1796,22 +1797,31 @@ function searchGroups() {
 
     if (results.length === 0) {
 
-        alert("No Groups Found");
+        await showAlert(
+            "No group matched '" + search + "'.",
+            "No Matches"
+        );
 
         return;
     }
 
-    let text = "Matches:\n\n";
+    let text = "";
 
     results.forEach(group => {
 
-        text += (group.groupName || "") + "\n";
+        text +=
+            (group.groupName || "") +
+            "  —  " +
+            (group.arrivalDate || "no date") +
+            "\n";
 
     });
 
-    alert(text);
+    await showAlert(
+        text.trim(),
+        results.length + " Match(es)"
+    );
 }
-
 
 /* =====================================================
    ARCHIVE GROUP
@@ -1830,7 +1840,7 @@ function archiveCurrentGroup() {
 
     saveDatabase();
 
-    alert("Group Archived");
+    showAlert("Group copied to the archive.", "Archived");
 }
 
 
@@ -1844,9 +1854,10 @@ function exportGroupJSON() {
 
     if (duplicates.length > 0) {
 
-        alert(
-            "Duplicate Room Numbers Found:\n\n" +
-            duplicates.join(", ")
+       showAlert(
+            "These rooms appear more than once:\n\n" +
+            duplicates.join(", "),
+            "Duplicate Rooms"
         );
 
         return;
@@ -1907,7 +1918,7 @@ function importGroupJSON(file) {
 
             console.error(error);
 
-            alert("Invalid JSON File");
+            showAlert("That file could not be read as a group.", "Invalid File");
         }
     };
 
@@ -1928,7 +1939,7 @@ function processBulkImport() {
 
     if (!text || !text.trim()) {
 
-        alert("Nothing to import");
+        showAlert("Paste some rows before importing.", "Nothing To Import");
 
         return;
     }
@@ -2077,13 +2088,13 @@ function restoreDatabase(file) {
 
             refreshApplication();
 
-            alert("Database Restored");
+            showAlert("Backup restored successfully.", "Restore Complete");
 
         } catch (error) {
 
             console.error(error);
 
-            alert("Invalid Backup");
+            showAlert("That file is not a valid backup.", "Restore Failed");
         }
     };
 
@@ -2677,14 +2688,12 @@ function showMealAnalytics() {
 
     });
 
-    alert(
-
-`Meal Analytics
-
-EP  : ${EP}
-CP  : ${CP}
-MAP : ${MAP}
-AP  : ${AP}`
+ showAlert(
+`EP   ${EP}
+CP   ${CP}
+MAP  ${MAP}
+AP   ${AP}`,
+        "Meal Covers"
     );
 }
 

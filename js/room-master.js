@@ -589,7 +589,7 @@ function isRoomInMaster(roomNo) {
    CATEGORY ACTIONS
 ===================================================== */
 
-function addRoomCategory() {
+async function addRoomCategory() {
 
     const input =
         document.getElementById("newCategoryName");
@@ -600,14 +600,14 @@ function addRoomCategory() {
 
     if (!name) {
 
-        alert("Enter a category name.");
+        await showAlert("Enter a category name.");
 
         return;
     }
 
     if (!RoomMasterRepository.addCategory(name)) {
 
-        alert("That category already exists.");
+        await showAlert("That category already exists.");
 
         return;
     }
@@ -618,16 +618,20 @@ function addRoomCategory() {
 }
 
 
-function renameRoomCategory(name) {
+async function renameRoomCategory(name) {
 
     const updated =
-        prompt("Rename category", name);
+        await showPrompt(
+            "New name for this category",
+            name,
+            "Rename Category"
+        );
 
     if (updated === null) return;
 
     if (!updated.trim()) {
 
-        alert("Category name cannot be empty.");
+        await showAlert("Category name cannot be empty.");
 
         return;
     }
@@ -638,7 +642,7 @@ function renameRoomCategory(name) {
         RoomMasterRepository.hasCategory(updated)
     ) {
 
-        alert("That category already exists.");
+        await showAlert("That category already exists.");
 
         return;
     }
@@ -649,7 +653,7 @@ function renameRoomCategory(name) {
 }
 
 
-function deleteRoomCategory(name) {
+async function deleteRoomCategory(name) {
 
     const counts =
         RoomMasterRepository.countByCategory();
@@ -663,7 +667,13 @@ function deleteRoomCategory(name) {
               "The rooms themselves are not deleted."
             : "Delete category '" + name + "'?";
 
-    if (!confirm(message)) return;
+    const ok = await showConfirm(
+        message,
+        "Delete Category",
+        { danger: true, okLabel: "Delete" }
+    );
+
+    if (!ok) return;
 
     RoomMasterRepository.removeCategory(name);
 
@@ -694,7 +704,7 @@ function changeCategoryRule(category, field, value) {
    ROOM ACTIONS
 ===================================================== */
 
-function addRoomsToMaster() {
+async function addRoomsToMaster() {
 
     const roomInput =
         document.getElementById("newRoomNumbers");
@@ -709,9 +719,10 @@ function addRoomsToMaster() {
 
     if (rooms.length === 0) {
 
-        alert(
+        await showAlert(
             "Enter a room number or range.\n\n" +
-            "Examples:  101      101-110      101,105,107"
+            "Examples:\n101\n101-110\n101,105,107",
+            "Nothing To Add"
         );
 
         return;
@@ -727,9 +738,10 @@ function addRoomsToMaster() {
 
     renderRoomMaster();
 
-    alert(
+    await showAlert(
         rooms.length + " room(s) processed.\n" +
-        added + " new room(s) added to inventory."
+        added + " new room(s) added to inventory.",
+        "Rooms Added"
     );
 }
 
@@ -747,15 +759,15 @@ function changeRoomCategory(roomNo, category) {
 }
 
 
-function deleteRoomFromMaster(roomNo) {
+async function deleteRoomFromMaster(roomNo) {
 
-    if (
-        !confirm(
-            "Remove room " + roomNo + " from inventory?"
-        )
-    ) {
-        return;
-    }
+    const ok = await showConfirm(
+        "Remove room " + roomNo + " from inventory?",
+        "Remove Room",
+        { danger: true, okLabel: "Remove" }
+    );
+
+    if (!ok) return;
 
     RoomMasterRepository.removeRoom(roomNo);
 
@@ -763,16 +775,16 @@ function deleteRoomFromMaster(roomNo) {
 }
 
 
-function clearRoomMaster() {
+async function clearRoomMaster() {
 
-    if (
-        !confirm(
-            "Remove ALL rooms from inventory?\n\n" +
-            "Categories are kept. This cannot be undone."
-        )
-    ) {
-        return;
-    }
+    const ok = await showConfirm(
+        "Remove ALL rooms from inventory?\n\n" +
+        "Categories are kept. This cannot be undone.",
+        "Clear Inventory",
+        { danger: true, okLabel: "Delete All" }
+    );
+
+    if (!ok) return;
 
     RoomMasterRepository.removeAllRooms();
 
@@ -787,7 +799,7 @@ function clearRoomMaster() {
        101-110,Deluxe
 ===================================================== */
 
-function processRoomMasterBulk() {
+async function processRoomMasterBulk() {
 
     const textarea =
         document.getElementById("roomMasterBulkText");
@@ -798,7 +810,7 @@ function processRoomMasterBulk() {
 
     if (!text) {
 
-        alert("Nothing to import.");
+        await showAlert("Nothing to import.");
 
         return;
     }
@@ -848,10 +860,10 @@ function processRoomMasterBulk() {
 
     renderRoomMaster();
 
-    alert(
-        "Import complete.\n\n" +
+    await showAlert(
         totalRooms + " room(s) processed.\n" +
-        newCategories + " new category(ies) created."
+        newCategories + " new category(ies) created.",
+        "Import Complete"
     );
 }
 
@@ -1259,6 +1271,8 @@ function initializeRoomMaster() {
     renderRoomMaster();
 
 }
+
+
 /* =====================================================
    ROOM MASTER ACCESS GUARD
 
@@ -1376,10 +1390,18 @@ function lockRoomMaster() {
 
 /* ---------- Settings Actions ---------- */
 
-function setRoomMasterPin() {
+async function setRoomMasterPin() {
 
-    const first =
-        prompt("Enter a new 4-digit Manager PIN:");
+    const first = await showPrompt(
+        "Enter a new 4-digit Manager PIN.",
+        "",
+        "Set Manager PIN",
+        {
+            inputType: "password",
+            maxLength: 4,
+            placeholder: "0000"
+        }
+    );
 
     if (first === null) return;
 
@@ -1387,19 +1409,27 @@ function setRoomMasterPin() {
 
     if (!/^\d{4}$/.test(pin)) {
 
-        alert("The PIN must be exactly 4 digits.");
+        await showAlert("The PIN must be exactly 4 digits.");
 
         return;
     }
 
-    const confirmPin =
-        prompt("Re-enter the PIN to confirm:");
+    const again = await showPrompt(
+        "Re-enter the PIN to confirm.",
+        "",
+        "Confirm PIN",
+        {
+            inputType: "password",
+            maxLength: 4,
+            placeholder: "0000"
+        }
+    );
 
-    if (confirmPin === null) return;
+    if (again === null) return;
 
-    if (confirmPin.trim() !== pin) {
+    if (again.trim() !== pin) {
 
-        alert("The two PINs did not match.");
+        await showAlert("The two PINs did not match.");
 
         return;
     }
@@ -1412,19 +1442,27 @@ function setRoomMasterPin() {
 
     renderPinStatus();
 
-    alert(
-        "Manager PIN set.\n\n" +
-        "Room Master will ask for it after every reload."
+    await showAlert(
+        "Room Master will ask for this PIN after every reload.",
+        "Manager PIN Set"
     );
 }
 
 
-function removeRoomMasterPin() {
+async function removeRoomMasterPin() {
 
     if (!hasRoomMasterPin()) return;
 
-    const entered =
-        prompt("Enter the current PIN to remove it:");
+    const entered = await showPrompt(
+        "Enter the current PIN to remove it.",
+        "",
+        "Remove Manager PIN",
+        {
+            inputType: "password",
+            maxLength: 4,
+            placeholder: "0000"
+        }
+    );
 
     if (entered === null) return;
 
@@ -1433,7 +1471,7 @@ function removeRoomMasterPin() {
         DB.settings.roomMasterPinHash
     ) {
 
-        alert("Incorrect PIN.");
+        await showAlert("Incorrect PIN.");
 
         return;
     }

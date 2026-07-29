@@ -1,0 +1,7 @@
+cd "D:\vikram\group arrival"
+
+git add .
+
+git commit -m "Your update description"
+
+git push

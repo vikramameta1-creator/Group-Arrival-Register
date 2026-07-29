@@ -318,127 +318,130 @@
         <h2>Arrival Register</h2>
     </div>
 
-    <!-- ---------- GROUP INFORMATION ---------- -->
+    <!-- ---------- GROUP HEADER ---------- -->
 
-    <div class="group-info-grid">
+    <div class="group-header">
 
-        <div class="form-group">
+        <div class="group-info-grid compact">
 
-            <label for="groupStatus">Status</label>
+            <div class="form-group">
 
-            <select id="groupStatus">
-                <option value="Pending">Pending</option>
-                <option value="Confirmed">Confirmed</option>
-                <option value="Arrived">Arrived</option>
-                <option value="Checked In">Checked In</option>
-                <option value="Checked Out">Checked Out</option>
-                <option value="Cancelled">Cancelled</option>
-            </select>
+                <label for="groupStatus">Status</label>
+
+                <select id="groupStatus">
+                    <option value="Pending">Pending</option>
+                    <option value="Confirmed">Confirmed</option>
+                    <option value="Arrived">Arrived</option>
+                    <option value="Checked In">Checked In</option>
+                    <option value="Checked Out">Checked Out</option>
+                    <option value="Cancelled">Cancelled</option>
+                </select>
+
+            </div>
+
+            <div class="form-group">
+                <label for="groupName">Group Name</label>
+                <input type="text" id="groupName">
+            </div>
+
+            <div class="form-group">
+                <label for="arrivalDate">Arrival Date</label>
+                <input type="date" id="arrivalDate">
+            </div>
+
+            <div class="form-group">
+                <label for="agentCompany">Agent / Company</label>
+                <input type="text" id="agentCompany">
+            </div>
+
+            <div class="form-group">
+                <label for="preparedBy">Prepared By</label>
+                <input type="text" id="preparedBy">
+            </div>
 
         </div>
 
-        <div class="form-group">
-            <label for="groupName">Group Name</label>
-            <input type="text" id="groupName">
-        </div>
+        <div class="collapse-panel" id="notesPanel">
 
-        <div class="form-group">
-            <label for="arrivalDate">Arrival Date</label>
-            <input type="date" id="arrivalDate">
-        </div>
+            <div class="form-group">
+                <label for="groupNotes">Notes</label>
+                <textarea id="groupNotes" rows="3"></textarea>
+            </div>
 
-        <div class="form-group">
-            <label for="agentCompany">Agent / Company</label>
-            <input type="text" id="agentCompany">
-        </div>
-
-        <div class="form-group">
-            <label for="preparedBy">Prepared By</label>
-            <input type="text" id="preparedBy">
-        </div>
-
-        <div class="form-group full-width">
-            <label for="groupNotes">Notes</label>
-            <textarea id="groupNotes" rows="3"></textarea>
         </div>
 
     </div>
 
-    <!-- ---------- ACTION GROUPS ---------- -->
+    <!-- ---------- TOOLBAR ---------- -->
 
-    <div class="action-groups">
+    <div class="register-toolbar">
 
-        <div class="action-group">
+        <div class="toolbar-set">
 
-            <div class="action-group-title">Build Register</div>
+            <input
+                type="number"
+                id="roomCount"
+                placeholder="Rooms"
+                min="1">
 
-            <div class="action-bar">
+            <button id="btnGenerateRows">Generate</button>
 
-                <input
-                    type="number"
-                    id="roomCount"
-                    placeholder="No. of Rooms"
-                    min="1">
+            <button id="btnAddRow">+ Row</button>
 
-                <button id="btnGenerateRows">Generate Rows</button>
+            <button onclick="autoGenerateRoomSeries()">Auto Series</button>
 
-                <button id="btnAddRow">Add Row</button>
+            <button onclick="sortRooms()">Sort</button>
 
-                <button onclick="autoGenerateRoomSeries()">
-                    Auto Room Series
-                </button>
-
-                <button onclick="sortRooms()">Sort Rooms</button>
-
-                <button onclick="clearRegister()">Clear Register</button>
-
-            </div>
+            <button onclick="clearRegister()">Clear</button>
 
         </div>
 
-        <div class="action-group">
+        <div class="toolbar-set">
 
-            <div class="action-group-title">Group</div>
+            <button id="btnSaveGroup" class="primary-action">Save Group</button>
 
-            <div class="action-bar">
+            <button id="btnOpenGroup">Open</button>
 
-                <button id="btnSaveGroup">Save Group</button>
+            <button id="btnExportJson">JSON</button>
 
-                <button id="btnOpenGroup">Open Group</button>
+            <button onclick="exportCSV()">CSV</button>
 
-                <button id="btnExportJson">Export JSON</button>
-
-                <button onclick="exportCSV()">Export CSV</button>
-
-                <input
-                    type="file"
-                    id="openGroupFile"
-                    accept=".json"
-                    hidden>
-
-            </div>
+            <input
+                type="file"
+                id="openGroupFile"
+                accept=".json"
+                hidden>
 
         </div>
 
-        <div class="action-group">
+        <div class="toolbar-set">
 
-            <div class="action-group-title">Print &amp; Checks</div>
+            <button id="btnPrintRegister">Print</button>
 
-            <div class="action-bar">
+            <button id="btnPrintBlank">Blank</button>
 
-                <button id="btnPrintRegister">Print Register</button>
+            <button onclick="showValidationReport()">Duplicates</button>
 
-                <button id="btnPrintBlank">Blank Register</button>
+            <button onclick="showMealAnalytics()">Meals</button>
 
-                <button onclick="showValidationReport()">
-                    Check Duplicates
-                </button>
+        </div>
 
-                <button onclick="showMealAnalytics()">
-                    Meal Analytics
-                </button>
+        <div class="toolbar-set toolbar-toggles">
 
-            </div>
+            <button
+                id="btnToggleNotes"
+                class="toggle-button"
+                onclick="toggleNotes()">&#9662; Notes</button>
+
+            <button
+                id="btnToggleBulkImport"
+                class="toggle-button"
+                onclick="toggleBulkImport()">&#9662; Bulk Import</button>
+
+            <button
+                id="btnShortcutHelp"
+                class="toggle-button"
+                title="Keyboard shortcuts (F1)">&#9000;</button>
 
         </div>
 
@@ -446,12 +449,10 @@
 
     <!-- ---------- BULK IMPORT ---------- -->
 
-    <div class="bulk-import-panel" id="bulkImportPanel">
-
-        <h3>Bulk Import</h3>
+    <div class="collapse-panel bulk-import-panel" id="bulkImportPanel">
 
         <p class="muted-note">
-            One room per line &nbsp;—&nbsp;
+            One room per line &nbsp;&mdash;&nbsp;
             <code>Room,Guest Name,Pax,Meal</code>
             &nbsp;&nbsp; Importing replaces all current rows.
         </p>
@@ -462,7 +463,7 @@
 
         <textarea
             id="bulkImportText"
-            rows="6"
+            rows="5"
             placeholder="101,John Smith,2,CP&#10;102,Anita Rao,1,MAP"></textarea>
 
         <button id="btnProcessImport">Import Data</button>
@@ -471,7 +472,7 @@
 
     <!-- ---------- REGISTER TABLE ---------- -->
 
-    <div class="table-container">
+    <div class="table-container register-scroll">
 
         <table
             id="arrivalRegisterTable"
@@ -601,7 +602,7 @@
 
         <div class="lock-box">
 
-            <div class="lock-icon">🔒</div>
+            <div class="lock-icon">&#128274;</div>
 
             <h3>Room Master is protected</h3>
 
@@ -615,7 +616,7 @@
                 id="roomMasterPinInput"
                 inputmode="numeric"
                 maxlength="4"
-                placeholder="••••">
+                placeholder="&bull;&bull;&bull;&bull;">
 
             <button id="btnUnlockRoomMaster">Unlock</button>
 
@@ -627,7 +628,7 @@
 
     <div class="page-title">
         <h2>Room Master</h2>
-        <button id="btnLockRoomMaster" class="lock-button">🔒 Lock</button>
+        <button id="btnLockRoomMaster" class="lock-button">&#128274; Lock</button>
     </div>
 
     <p class="muted-note">
@@ -660,7 +661,7 @@
 
             <div class="table-container">
 
-               <table class="data-table category-table">
+                <table class="data-table category-table">
 
                     <thead>
                         <tr>
@@ -758,7 +759,7 @@
 
             <table class="data-table">
 
-              <thead>
+                <thead>
                     <tr>
                         <th>Room</th>
                         <th>Category</th>
@@ -880,7 +881,7 @@
             <div id="reportMealSummary"></div>
         </div>
 
-       <div class="report-card">
+        <div class="report-card">
             <h3>Occupancy Summary</h3>
             <div id="reportOccupancySummary"></div>
         </div>
@@ -991,13 +992,13 @@
 
         <!-- ---------- DATA BACKUP ---------- -->
 
-       <div class="dashboard-panel">
+        <div class="dashboard-panel">
 
             <h3>Manager PIN</h3>
 
             <p class="muted-note">
                 Protects Room Master from accidental changes
-                during a shift. This is not security — anyone
+                during a shift. This is not security &mdash; anyone
                 with browser developer tools can bypass it.
                 Proper accounts arrive with the database backend.
             </p>
@@ -1066,6 +1067,7 @@
 
 </footer>
 
+
 <!-- =====================================================
      APPLICATION DIALOG
 ===================================================== -->
@@ -1080,9 +1082,7 @@
 
         <div id="appDialogInputWrap" style="display:none;">
 
-            <label class="sr-label" for="appDialogInput">
-                Value
-            </label>
+            <label class="sr-label" for="appDialogInput">Value</label>
 
             <input type="text" id="appDialogInput">
 
@@ -1106,16 +1106,23 @@
 
 </div>
 
+
 <!-- =====================================================
      SCRIPTS
-     Load order matters. app.js must be last.
+
+     Load order matters.
+     dialog.js first, shortcuts.js last.
+
+     Bump every ?v= number together after replacing
+     any module file.
 ===================================================== -->
 
-<script src="js/dialog.js?v=1"></script>
-<script src="js/printing.js?v=1"></script>
-<script src="js/room-master.js?v=1"></script>
-<script src="js/reports.js?v=2"></script>
-<script src="js/app.js?v=1"></script>
+<script src="js/dialog.js?v=9"></script>
+<script src="js/printing.js?v=9"></script>
+<script src="js/room-master.js?v=9"></script>
+<script src="js/reports.js?v=9"></script>
+<script src="js/app.js?v=9"></script>
+<script src="js/shortcuts.js?v=9"></script>
 
 </body>
 

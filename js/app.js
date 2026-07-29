@@ -3514,6 +3514,11 @@ function initializeApplication() {
 
     refreshApplication();
 
+  if (typeof initializeShortcuts === "function") {
+
+        initializeShortcuts();
+    }
+
     console.log(
         "Hotel Group Operations Suite Initialized"
     );

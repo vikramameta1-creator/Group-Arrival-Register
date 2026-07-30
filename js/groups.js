@@ -853,3 +853,4 @@ function initializeGroupEvents() {
 
     });
 }
+registerModuleVersion("groups.js", "1.0.0");

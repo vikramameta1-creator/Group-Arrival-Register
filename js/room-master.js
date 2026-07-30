@@ -1560,3 +1560,4 @@ function initializeRoomMasterLock() {
 
     applyRoomMasterLock();
 }
+registerModuleVersion("room-master.js", "1.0.0");

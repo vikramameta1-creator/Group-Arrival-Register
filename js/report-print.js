@@ -1266,3 +1266,4 @@ function initializeReportPrinting() {
     updateReportDateMode();
 
 }
+registerModuleVersion("report-print.js", "1.0.0");

@@ -1,0 +1,281 @@
+# Group Arrival Register
+
+Front office software for hotel group arrivals — rooming lists,
+meal plans, room categories, occupancy control, printing and
+operational reports.
+
+**Version 1.0.0**
+
+Built for front office staff who currently manage group arrivals
+on paper registers and Excel sheets.
+
+---
+
+# Part 1 — For Front Office Staff
+
+## What this software does
+
+| Screen | Purpose |
+|---|---|
+| **Dashboard** | Today's and tomorrow's arrivals, live totals, saved groups |
+| **Arrival Register** | Enter a group — rooms, guests, pax, children, meals, VIP, requests |
+| **Rooming List** | Automatic view of the open group for Housekeeping |
+| **Room Master** | Map every room to a category and set occupancy limits |
+| **Reports** | Live figures on screen, plus four printable reports |
+| **Settings** | Hotel name, logo, register rules, manager PIN, backup |
+
+## Before your first group — set up the Room Master
+
+Nothing else works properly until this is done.
+
+1. Go to **Room Master**
+2. Under **Categories**, add each room type — Deluxe, Suite, and so on
+3. For each category set:
+   - **Default Adults** — auto-fills Pax when a room is typed
+   - **Max Adults** — most adults allowed
+   - **Max Children** — most children allowed
+   - **Max Occupancy** — **total** people allowed in the room
+4. Under **Add Rooms**, enter your rooms and pick a category:
+   - `101` a single room
+   - `101-110` a range
+   - `101,105,107-109` a mixed list
+5. Or use **Bulk Setup** — one line per entry:
+   ```
+   101-110,Deluxe
+   201-206,Super Deluxe
+   301,Suite
+   ```
+
+Max Occupancy is the total, and children count towards it. A
+Deluxe with Max Occupancy 3 holds 2 adults + 1 child, or 3
+adults — never 2 adults + 2 children.
+
+## Entering a group
+
+1. **Arrival Register**
+2. Fill Group Name, Arrival Date, Agent and Prepared By
+3. Enter the room count and click **Generate**
+4. For each row:
+   - Type the **Room** — the Category fills itself and Pax
+     auto-fills from that category
+   - Type the **Guest Name** — for a shared room put both
+     names on one line: `Sharma, Rajesh + Sharma, Priya`
+   - Adjust **Pax** if needed
+   - Set **Children** if any — an age box appears for each
+   - Choose the **Meal** plan
+   - Tick **VIP** and add a Special Request if needed
+5. Click **Save Group**
+
+**Enter** moves down the same column, so you can type a whole
+column without touching the mouse.
+
+## Red cells mean Save is blocked
+
+| Label | Meaning |
+|---|---|
+| `NOT IN MASTER` | That room is not in the Room Master |
+| `DUPLICATE` | That room is already used in this group |
+| `MAX n PAX` | More people than the room holds |
+| `MAX n CHILD` | More children than the category allows |
+| `MAX n ADULTS` | More adults than the category allows |
+
+Fix every red cell before saving. Save will list every problem
+if you try.
+
+## If you clear or replace rows by mistake
+
+**Clear Register**, **Generate Rows** and **Bulk Import** all
+ask first when rows contain data, then show a blue bar:
+
+> 38 row(s) replaced. The previous register can be restored
+> until you leave this page.
+
+Click **Restore** to get them back. This lasts until you leave
+the page, so use it straight away.
+
+## The unsaved draft banner
+
+Your work is saved automatically about once a second. If the
+browser closes or the power goes, the register comes back when
+you reopen the app, with an amber bar:
+
+> Unsaved draft restored.
+
+**Keep** dismisses the message. **Discard** throws the recovered
+work away. This is separate from Save Group — a restored draft
+is not a saved group until you save it.
+
+## Printing
+
+**From the Arrival Register**
+- **Print** — the arrival register for the group leader to sign
+- **Blank** — an empty register for handwritten entry
+
+**From the Rooming List**
+- **Print Rooming List** — for Housekeeping, with VIP and
+  special requests
+
+**From Reports → Print Reports** — pick a date, pick a report:
+
+| Report | For |
+|---|---|
+| **Daily Arrival Manifest** | Front office, duty manager |
+| **Housekeeping Allocation** | Housekeeping |
+| **Food & Beverage Covers** | Kitchen — includes breakfast, lunch and dinner counts |
+| **Management Flash** | GM — date range, occupancy, agent business |
+
+Room categories never appear on printed documents.
+
+## Keyboard shortcuts
+
+Press **F1** or **?** at any time for this list.
+
+| Key | Action |
+|---|---|
+| `Alt`+`1`–`6` | Switch tab |
+| `Ctrl`+`S` | Save group |
+| `Ctrl`+`P` | Print register |
+| `Ctrl`+`Shift`+`B` | Blank register |
+| `Ctrl`+`Enter` | Add a row |
+| `Ctrl`+`G` | Jump to room count |
+| `Ctrl`+`D` | Check duplicates |
+| `Enter` | Next row, same column |
+| `Esc` | Close a dialog |
+
+## ⚠ Back up your data — this matters
+
+**All data is stored in this browser on this computer only.**
+Clearing browsing data, reinstalling the browser or changing
+computer will lose every saved group.
+
+**Take a backup weekly:**
+
+Settings → Data Backup → **Download Backup**
+
+Keep the file somewhere safe. To restore, use **Restore Backup**
+and pick the file.
+
+Settings → System Diagnostics warns you when storage is filling
+up. Act on that warning — take a backup and delete old groups.
+
+## Manager PIN
+
+Settings → Manager PIN protects the Room Master from accidental
+changes during a shift. It asks for the PIN again after every
+reload, and there is a **Lock** button on the Room Master page.
+
+This prevents accidents. It is **not** security — anyone with
+browser developer tools can bypass it. Proper user accounts
+arrive with the database version.
+
+## If something stops working
+
+1. Settings → **System Diagnostics** → **Run Diagnostics**
+2. Read out what it says
+3. If it reports problems, note them and contact support
+4. Take a backup before trying anything else
+
+---
+
+# Part 2 — For IT and Installation
+
+## Requirements
+
+- A modern browser — Chrome, Edge or Firefox, updated within
+  the last two years
+- No internet connection required after installation
+- No server, database or runtime to install
+- Screen 1280×720 or larger
+
+Not supported: Internet Explorer, or any browser with
+JavaScript disabled.
+
+## Installing
+
+1. Copy the whole folder to the machine
+2. Open `Group_Arrival_Register.html` in the browser
+3. Create a desktop shortcut to that file
+
+For a multi-machine setup, serve the folder over a local web
+server. Note that **data does not sync between machines** —
+each browser holds its own copy. Shared data arrives with the
+database version.
+
+## File structure
+
+```
+Group_Arrival_Register.html    the application
+css/style.css                  all styling
+js/
+  dialog.js         in-page dialogs
+  database.js       storage, migration, group repository
+  printing.js       print engine and register documents
+  room-master.js    room inventory, categories, occupancy, PIN
+  register.js       arrival register, validation, capacity
+  dashboard.js      KPIs, arrival cards, saved groups
+  reports.js        on-screen reports
+  report-print.js   printable operational reports
+  groups.js         save, open, delete, import, export, autosave
+  app.js            bootstrap, settings, navigation
+  shortcuts.js      keyboard shortcuts
+  diagnostics.js    health check
+```
+
+**Load order matters** and is fixed in the HTML. `dialog.js`
+first, `database.js` second, `diagnostics.js` last.
+
+## Where the data lives
+
+Browser localStorage, keys `hotel_group_operations_v5` and
+`GROUP_DRAFT`. Limit is roughly 5 MB — a few hundred groups.
+Diagnostics warns at 75% and errors at 90%.
+
+Backups are plain JSON and can be inspected in any text editor.
+
+## Updating
+
+Replace the changed file in `js/`, then increment the `?v=`
+number on **every** script tag in the HTML so browsers reload
+them. All twelve must carry the same number.
+
+After updating, open the app and check the console for:
+
+```
+Suite Diagnostics — 10 modules, 0 problems, storage 0%
+```
+
+Any other result means the update did not apply cleanly.
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Blank page, no buttons work | a JS file failed to load | check the console for a red error naming the file |
+| Diagnostics reports missing functions | one file has a syntax error, or a script tag is missing | check the console for the parse error above it |
+| Changes not appearing | browser cache | DevTools → Network → Disable cache, then reload |
+| Column mismatch warning | HTML table headers do not match the code | do not use — restore the correct HTML |
+| Save does nothing | storage full | take a backup, delete old groups |
+| Print window does not open | pop-up blocker | allow pop-ups for this page |
+
+## Known limits in version 1.0
+
+- Single machine, single user — no sync or accounts
+- No departure dates, so occupancy is measured on the arrival
+  date only. A three-night group shows as occupying rooms for
+  one day.
+- No rates, so no revenue, ADR or RevPAR
+- No housekeeping room status
+- Manager PIN is an accident guard, not security
+- One row is one room. Extra guests go in the Guest Name field
+  as free text.
+
+## Support
+
+Run Settings → System Diagnostics first and have the output
+ready. It reports module count, problems, storage use, groups
+saved and rooms mapped.
+
+---
+
+**Group Arrival Register v1.0.0** · Part of the Hotel
+Operations Suite · Author: Vikram Ameta

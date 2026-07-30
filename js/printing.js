@@ -197,6 +197,15 @@ table.doc-table tr{
     text-align:right;
 }
 
+.print-version{
+    margin-top:10px;
+    padding-top:5px;
+    border-top:1px solid #999;
+    font-size:8px;
+    color:#555;
+    text-align:center;
+}
+
 </style>
 
 <style>
@@ -208,6 +217,14 @@ ${extraStyles || ""}
 <body>
 
 ${bodyHtml}
+
+<div class="print-version">
+${
+    typeof getPrintFooterText === "function"
+        ? escapeHTML(getPrintFooterText())
+        : ""
+}
+</div>
 
 </body>
 
@@ -715,3 +732,4 @@ table.doc-table td{ height:26px; }
         styles
     );
 }
+registerModuleVersion("printing.js", "1.0.0");

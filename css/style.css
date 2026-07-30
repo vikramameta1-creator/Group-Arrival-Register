@@ -3236,3 +3236,20 @@ body{
     background:var(--border);
 
 }
+.app-version{
+
+    cursor:help;
+
+}
+
+.app-version.version-warning{
+
+    background:#fdecea;
+
+    border-color:var(--danger);
+
+    color:var(--danger);
+
+    font-weight:700;
+
+}

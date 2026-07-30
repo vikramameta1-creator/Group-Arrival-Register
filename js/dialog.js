@@ -457,3 +457,4 @@ function initializeDialogs() {
     });
 
 }
+registerModuleVersion("dialog.js", "1.0.0");

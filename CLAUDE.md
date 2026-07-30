@@ -541,3 +541,6 @@ snippets, and referencing line numbers.
 Preserve working code. Refactor in small testable phases.
 Prioritise hotel operations over technical elegance.
 Version 1.0 is about shipping.
+The diagnostics manifest is stale — sixteen group functions are still listed under app.js, and groups.js has no entry. Needs a corrected diagnostics.js.
+Scope the no-build rule to "no build tools during development, build tools at packaging" — required for the Electron path.
+Add the eleven-module load order and the distribution requirements to CLAUDE.md.

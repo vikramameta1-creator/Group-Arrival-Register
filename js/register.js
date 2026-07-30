@@ -1862,3 +1862,4 @@ function initializeRestoreBar() {
         ?.addEventListener("click", dismissRestore);
 
 }
+registerModuleVersion("register.js", "1.0.0");

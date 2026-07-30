@@ -353,3 +353,4 @@ function initializeShortcuts() {
         ?.addEventListener("click", showShortcutHelp);
 
 }
+registerModuleVersion("shortcuts.js", "1.0.0");

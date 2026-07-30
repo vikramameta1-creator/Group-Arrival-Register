@@ -358,3 +358,4 @@ const GroupRepository = {
     }
 
 };
+registerModuleVersion("database.js", "1.0.0");

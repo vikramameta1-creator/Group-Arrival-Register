@@ -72,7 +72,12 @@ const MODULE_MANIFEST = {
         "handleRegisterKeydown", "handleRegisterInput",
         "handleRegisterBeforeInput",
         "handleRegisterCleanup", "placeCaretAtEnd",
-        "initializeRegisterEvents"
+        "initializeRegisterEvents",
+        "filterRegisterRows", "clearRegisterFilter",
+        "initializeRegisterSearch", "snapshotRegister",
+        "showRestoreBar", "hideRestoreBar",
+        "dismissRestore", "restoreLastRegister",
+        "confirmRegisterReplace", "initializeRestoreBar"
     ],
 
     "dashboard.js": [
@@ -89,24 +94,43 @@ const MODULE_MANIFEST = {
         "renderCategoryReport", "initializeReports"
     ],
 
-    "app.js": [
-        "initializeApplication", "refreshApplication",
-        "refreshApplicationSettings", "switchPage",
-        "initializeNavigation", "saveSettings",
+    "groups.js": [
         "getCurrentGroupData", "loadGroupToScreen",
         "saveCurrentGroup", "openSavedGroup",
-        "deleteSavedGroup", "exportGroupJSON",
-        "importGroupJSON", "processBulkImport",
-        "exportCSV", "backupDatabase", "restoreDatabase",
+        "deleteSavedGroup", "openGroupSelector",
+        "searchGroups", "archiveCurrentGroup",
+        "exportGroupJSON", "importGroupJSON",
+        "processBulkImport", "exportCSV",
+        "backupDatabase", "restoreDatabase",
         "autoSaveCurrentWork", "scheduleAutoSave",
         "restoreDraft", "toggleDraftBanner",
-        "getTodayString", "getTomorrowString",
-        "togglePanel", "showMealAnalytics"
+        "keepDraft", "discardDraft",
+        "initializeGroupEvents"
+    ],
+
+    "app.js": [
+        "initializeApplication", "refreshApplication",
+        "refreshApplicationSettings", "saveApplication",
+        "switchPage", "initializeNavigation",
+        "loadSettingsToScreen", "updateBranding",
+        "saveSettings", "handleLogoUpload", "restoreLogo",
+        "getLocalDateString", "getTodayString",
+        "getTomorrowString", "updateDateTime",
+        "generateId", "qs", "qsa", "formatNumber",
+        "showMealAnalytics", "initializeProfessionalTools",
+        "togglePanel", "toggleNotes", "toggleBulkImport",
+        "initializePrintEvents", "initializeSettingsEvents"
     ],
 
     "shortcuts.js": [
         "initializeShortcuts", "showShortcutHelp",
         "handleGlobalShortcut", "getActivePageId"
+    ],
+
+    "version.js": [
+        "registerModuleVersion", "getVersionReport",
+        "getVersionString", "getPrintFooterText",
+        "renderAppVersion"
     ],
 
     "report-print.js": [
@@ -149,13 +173,18 @@ const CRITICAL_ELEMENTS = [
     "roomMasterSummary", "newRoomCategory",
     "reportArrivalSummary", "reportMealSummary",
     "reportOccupancySummary", "reportCategorySummary",
+    "appVersion",
     "appDialog", "appDialogOk", "appDialogCancel",
     "appDialogInput", "appDialogTitle",
     "settingHotelName", "settingFooterText",
     "settingRoomNumbersOnly", "settingRestrictRooms",
     "draftBanner", "bulkImportPanel", "notesPanel",
     "printReportType", "printReportDate",
-    "btnPrintSelectedReport"
+    "btnPrintSelectedReport",
+    "registerSearch", "btnClearRegisterSearch",
+    "restoreBar", "restoreBarText",
+    "btnRestoreRegister", "btnDismissRestore",
+    "diagnosticsSummary", "btnRunDiagnostics"
 
 ];
 
@@ -345,6 +374,60 @@ function checkDuplicateScripts() {
 }
 
 
+function checkModuleVersions() {
+
+    const problems = [];
+
+    if (typeof getVersionReport !== "function") {
+
+        problems.push({
+            level: "WARNING",
+            text: "VERSION  version.js is not loaded"
+        });
+
+        return problems;
+    }
+
+    const report = getVersionReport();
+
+    report.missing.forEach(file => {
+
+        problems.push({
+            level: "ERROR",
+            text:
+                "MODULE NOT LOADED  " + file +
+                "  (expected v" + EXPECTED_MODULES[file] + ")"
+        });
+
+    });
+
+    report.mismatch.forEach(item => {
+
+        problems.push({
+            level: "ERROR",
+            text:
+                "VERSION MISMATCH  " + item.file +
+                "  expected v" + item.expected +
+                ", loaded v" + item.loaded
+        });
+
+    });
+
+    report.extra.forEach(file => {
+
+        problems.push({
+            level: "WARNING",
+            text:
+                "UNKNOWN MODULE  " + file +
+                " is not in the expected manifest"
+        });
+
+    });
+
+    return problems;
+}
+
+
 /* =====================================================
    STORAGE USAGE
 
@@ -440,6 +523,7 @@ function runDiagnostics() {
         .concat(checkElements())
         .concat(checkRegisterColumns())
         .concat(checkDuplicateScripts())
+        .concat(checkModuleVersions())
         .concat(checkStorage());
 
     const errors =
@@ -470,7 +554,9 @@ function logDiagnostics() {
     if (result.healthy && result.warnings.length === 0) {
 
         console.log(
-            "Suite Diagnostics — " +
+            (typeof getVersionString === "function"
+                ? getVersionString() + " — "
+                : "Suite Diagnostics — ") +
             result.moduleCount +
             " modules, 0 problems, storage " +
             result.storage.percent + "%"
@@ -646,3 +732,4 @@ document.addEventListener(
 
     }
 );
+registerModuleVersion("diagnostics.js", "1.0.0");

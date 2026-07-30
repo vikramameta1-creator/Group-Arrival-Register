@@ -1190,3 +1190,4 @@ function initializeReports() {
     updateReports();
 
 }
+registerModuleVersion("reports.js", "1.0.0");

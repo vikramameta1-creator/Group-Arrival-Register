@@ -262,13 +262,17 @@ function updateBranding() {
             "Hotel Group Operations Suite";
     }
 
-    if (footer) {
+ if (footer) {
 
         footer.textContent =
             DB.settings.footerText || "";
     }
-}
 
+    if (typeof renderAppVersion === "function") {
+
+        renderAppVersion();
+    }
+}
 
 /* =====================================================
    SAVE SETTINGS
@@ -674,3 +678,4 @@ document.addEventListener(
     "DOMContentLoaded",
     initializeApplication
 );
+registerModuleVersion("app.js", "1.0.0");

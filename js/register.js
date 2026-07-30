@@ -284,7 +284,7 @@ function loadRegisterRows(rows = []) {
    GENERATE ROWS
 ===================================================== */
 
-function generateRows() {
+async function generateRows() {
 
     const body = getRegisterBody();
 
@@ -307,6 +307,16 @@ function generateRows() {
         return;
     }
 
+    /* Never wipe existing rows without asking */
+
+    if (typeof confirmRegisterReplace === "function") {
+
+        const proceed =
+            await confirmRegisterReplace("Generate Rows");
+
+        if (!proceed) return;
+    }
+
     body.innerHTML = "";
 
     for (let i = 1; i <= count; i++) {
@@ -319,7 +329,6 @@ function generateRows() {
 
     refreshRegisterViews();
 }
-
 
 /* =====================================================
    ADD SINGLE ROW
@@ -449,7 +458,36 @@ async function autoGenerateRoomSeries() {
         return;
     }
 
-    const requested = parseRoomList(input);
+  let requested = parseRoomList(input);
+
+    /* ---------- Single Room Means "Start Here" ---------- */
+
+    if (
+        requested.length === 1 &&
+        body.rows.length > 1 &&
+        typeof RoomMasterRepository !== "undefined" &&
+        RoomMasterRepository.totalRooms() > 0
+    ) {
+
+        const inventory =
+            RoomMasterRepository.getRoomNumbers();
+
+        const startAt =
+            inventory.indexOf(requested[0]);
+
+        if (startAt >= 0) {
+
+            /* Walk forward through real rooms only, so
+               gaps in the inventory are skipped rather
+               than invented. */
+
+            requested =
+                inventory.slice(
+                    startAt,
+                    startAt + body.rows.length
+                );
+        }
+    }
 
     if (requested.length === 0) {
 
@@ -613,7 +651,9 @@ async function clearRegister() {
         { danger: true, okLabel: "Clear" }
     );
 
-    if (!ok) return;
+   if (!ok) return;
+
+    snapshotRegister("cleared");
 
     clearRegisterFields();
 
@@ -1662,5 +1702,163 @@ function initializeRegisterSearch() {
     document
         .getElementById("btnClearRegisterSearch")
         ?.addEventListener("click", clearRegisterFilter);
+
+}
+/* =====================================================
+   ONE STEP RESTORE
+
+   Generate Rows and Bulk Import replace every row.
+   Before they do, the register is snapshotted so a
+   mistyped room count cannot destroy a shift's work.
+
+   This is deliberately NOT a general undo stack.
+   Cell edits already have native browser undo; the
+   damage that actually happens is bulk replacement.
+===================================================== */
+
+let registerSnapshot = null;
+
+
+function snapshotRegister(reason) {
+
+    const rows = getRegisterRows();
+
+    const real =
+        rows.filter(row => !isEmptyRegisterRow(row));
+
+    if (real.length === 0) {
+
+        registerSnapshot = null;
+
+        hideRestoreBar();
+
+        return 0;
+    }
+
+    registerSnapshot = {
+        rows:   rows,
+        count:  real.length,
+        reason: reason || "replaced",
+        at:     Date.now()
+    };
+
+    showRestoreBar();
+
+    return real.length;
+}
+
+
+function showRestoreBar() {
+
+    const bar =
+        document.getElementById("restoreBar");
+
+    const text =
+        document.getElementById("restoreBarText");
+
+    if (!bar || !registerSnapshot) return;
+
+    if (text) {
+
+        text.innerHTML =
+            "<strong>" +
+            registerSnapshot.count +
+            " row(s) " +
+            registerSnapshot.reason +
+            ".</strong> The previous register can be " +
+            "restored until you leave this page.";
+    }
+
+    bar.style.display = "flex";
+}
+
+
+function hideRestoreBar() {
+
+    const bar =
+        document.getElementById("restoreBar");
+
+    if (bar) bar.style.display = "none";
+}
+
+
+function dismissRestore() {
+
+    registerSnapshot = null;
+
+    hideRestoreBar();
+}
+
+
+async function restoreLastRegister() {
+
+    if (!registerSnapshot) {
+
+        hideRestoreBar();
+
+        return;
+    }
+
+    const ok = await showConfirm(
+        "Restore the previous " +
+        registerSnapshot.count +
+        " row(s)?\n\n" +
+        "Anything entered since will be replaced.",
+        "Restore Register",
+        { okLabel: "Restore" }
+    );
+
+    if (!ok) return;
+
+    loadRegisterRows(registerSnapshot.rows);
+
+    registerSnapshot = null;
+
+    hideRestoreBar();
+
+    if (typeof showSaveFlash === "function") {
+
+        showSaveFlash("Register restored");
+    }
+}
+
+
+/* ---------- Guard For Bulk Replacement ---------- */
+
+async function confirmRegisterReplace(actionLabel) {
+
+    const rows = getRegisterRows();
+
+    const real =
+        rows.filter(row => !isEmptyRegisterRow(row));
+
+    if (real.length === 0) return true;
+
+    const ok = await showConfirm(
+        real.length +
+        " row(s) already contain data.\n\n" +
+        actionLabel +
+        " will replace all of them.",
+        "Replace Register",
+        { danger: true, okLabel: "Replace" }
+    );
+
+    if (!ok) return false;
+
+    snapshotRegister("replaced");
+
+    return true;
+}
+
+
+function initializeRestoreBar() {
+
+    document
+        .getElementById("btnRestoreRegister")
+        ?.addEventListener("click", restoreLastRegister);
+
+    document
+        .getElementById("btnDismissRestore")
+        ?.addEventListener("click", dismissRestore);
 
 }

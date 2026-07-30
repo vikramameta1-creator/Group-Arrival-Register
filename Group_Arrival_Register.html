@@ -11,7 +11,12 @@
 
     <title>Hotel Group Operations Suite</title>
 
-    <link rel="icon" href="data:,">
+   <link rel="icon" href="data:,">
+
+    <!-- Development only. Stops the browser caching this
+         file, which has repeatedly served stale script
+         tags. Remove before packaging. -->
+    <meta http-equiv="Cache-Control" content="no-store">
 
     <link rel="stylesheet" href="css/style.css">
 
@@ -471,6 +476,21 @@
     </div>
 
     <!-- ---------- REGISTER TABLE ---------- -->
+<div id="restoreBar" class="restore-bar" style="display:none;">
+
+        <span id="restoreBarText"></span>
+
+        <span class="restore-bar-actions">
+
+            <button id="btnRestoreRegister">Restore</button>
+
+            <button id="btnDismissRestore" class="secondary">
+                Dismiss
+            </button>
+
+        </span>
+
+    </div>
 
   <div class="register-search-bar">
 
@@ -809,6 +829,54 @@
     <div class="page-title">
         <h2>Reports</h2>
     </div>
+<div class="dashboard-panel print-report-panel">
+
+        <h3>Print Reports</h3>
+
+        <p class="muted-note">
+            Operational reports for a business date.
+            Print, hand over at shift change, file.
+        </p>
+
+        <div class="filter-grid">
+
+            <div class="form-group">
+                <label for="printReportType">Report</label>
+                <select id="printReportType">
+                    <option value="manifest">
+                        Daily Arrival Manifest — Front Office
+                    </option>
+                    <option value="housekeeping">
+                        Housekeeping Allocation — Housekeeping
+                    </option>
+                    <option value="covers">
+                        Food &amp; Beverage Covers — Kitchen
+                    </option>
+                    <option value="flash">
+                        Management Flash — GM
+                    </option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="printReportDate">Date</label>
+                <input type="date" id="printReportDate">
+            </div>
+
+            <div class="form-group" id="printReportDateToWrap">
+                <label for="printReportDateTo">Date To</label>
+                <input type="date" id="printReportDateTo">
+            </div>
+
+            <div class="form-group filter-action">
+                <button id="btnPrintSelectedReport">
+                    🖨 Print Report
+                </button>
+            </div>
+
+        </div>
+
+    </div>
 
     <div class="report-scope">
 
@@ -1031,7 +1099,27 @@
             </div>
 
         </div>
+<div class="dashboard-panel">
 
+            <h3>System Diagnostics</h3>
+
+            <p class="muted-note">
+                Checks that every module loaded correctly and
+                reports storage usage. Run this first if
+                something stops working.
+            </p>
+
+            <div id="diagnosticsSummary"></div>
+
+            <div class="action-bar">
+
+                <button id="btnRunDiagnostics">
+                    Run Diagnostics
+                </button>
+
+            </div>
+
+        </div>
         <div class="dashboard-panel">
 
             <h3>Data Backup</h3>
@@ -1131,15 +1219,19 @@
      Bump every ?v= number together after replacing
      any module file.
 ===================================================== -->
-<script src="js/dialog.js?v=12"></script>
-<script src="js/database.js?v=12"></script>
-<script src="js/printing.js?v=12"></script>
-<script src="js/room-master.js?v=12"></script>
-<script src="js/register.js?v=12"></script>
-<script src="js/dashboard.js?v=12"></script>
-<script src="js/reports.js?v=12"></script>
-<script src="js/app.js?v=12"></script>
-<script src="js/shortcuts.js?v=12"></script>
+<script src="js/dialog.js?v=18"></script>
+<script src="js/database.js?v=18"></script>
+<script src="js/printing.js?v=18"></script>
+<script src="js/room-master.js?v=18"></script>
+<script src="js/register.js?v=18"></script>
+<script src="js/dashboard.js?v=18"></script>
+<script src="js/reports.js?v=18"></script>
+<script src="js/report-print.js?v=18"></script>
+<script src="js/groups.js?v=18"></script>
+<script src="js/app.js?v=18"></script>
+<script src="js/shortcuts.js?v=18"></script>
+<script src="js/diagnostics.js?v=18"></script>
+
 
 </body>
 

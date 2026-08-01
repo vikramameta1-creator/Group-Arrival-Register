@@ -77,7 +77,9 @@ const MODULE_MANIFEST = {
         "initializeRegisterSearch", "snapshotRegister",
         "showRestoreBar", "hideRestoreBar",
         "dismissRestore", "restoreLastRegister",
-        "confirmRegisterReplace", "initializeRestoreBar"
+       "confirmRegisterReplace", "initializeRestoreBar",
+        "applyMealToAllRows", "initializeBulkMealPlan",
+        "clearRegisterFields"
     ],
 
     "dashboard.js": [

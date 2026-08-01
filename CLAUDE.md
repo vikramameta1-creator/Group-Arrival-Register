@@ -1,5 +1,5 @@
 # CLAUDE.md
-## Hotel Group Operations Suite — Authoritative Project Context
+## Group Arrival Register — Authoritative Project Context
 
 Read this file completely before suggesting any code change.
 This file wins over anything you remember about this project.
@@ -8,57 +8,52 @@ This file wins over anything you remember about this project.
 
 # 1. WHAT THIS IS
 
-**Group Arrival Register (GAR)** — front office software for
-hotel group arrivals, rooming lists, meal plans, room category
-mapping, printing and reports.
+Front office software for hotel group arrivals — rooming lists,
+meal plans, room categories, occupancy control, printing and
+operational reports.
 
 Target feel: Oracle Opera, IDS Next, eZee FrontDesk, Hotelogix.
 Not a generic CRUD app. Software a receptionist uses every day.
 
-**Author:** Vikram
-**Version:** v1.0.0 RC1 (in progress)
-**Completion:** ~90%
-**Platform:** plain HTML / CSS / JavaScript, localStorage, no build step
+**Author:** Vikram Ameta
+**Version:** v1.0.0 RC1
+**Completion:** ~96% — packaging remains
+**Platform:** plain HTML / CSS / JavaScript, localStorage, no
+build step during development
 
 ---
 
 # 2. THIS IS ONE APP IN A SUITE
 
-There is a **second application already in development**:
+A second application exists: **Hotel Key Inventory Management
+(HKIM)** — a key register. About 20 modules, storage key
+`HKIM_DATABASE`, an immutable transaction ledger with
+`before`/`after` balances, plus audit log, business days,
+shifts and counters.
 
-**Hotel Key Inventory Management (HKIM)** — a key register.
-Roughly 20 JS modules, storage key `HKIM_DATABASE`, tracks key
-transactions as an immutable ledger with `before`/`after`
-balances, plus audit log, business days, shifts and counters.
+A **PMS comes later**; this app may become one section of it.
 
-A **PMS will come much later**, and GAR may become one section
-of it. A key module will be folded into the suite.
+**HKIM is architecturally ahead** — `"use strict"`, frozen
+constants, `crypto.randomUUID()`, ISO timestamps from day one,
+an immutable transaction model and an audit log. At merge,
+**HKIM's structure is the template**, not this app's.
 
-**HKIM is architecturally ahead of GAR** — `"use strict"`,
-frozen constants, `crypto.randomUUID()`, ISO timestamps from
-day one, an immutable transaction model and an audit log.
-When the suite merges, **HKIM's structure is the template**,
-not GAR's.
+## Suite decision — LOCKED
 
-## The suite decision — LOCKED
+**Ship both standalone at v1.0. Merge at v2.0.** Merging
+mid-development means neither ships.
 
-**Ship GAR and HKIM as standalone v1.0 first. Merge at v2.0.**
-
-Reason: merging mid-development means neither ships. The merge
-needs a migration that reads both localStorage keys and writes
-one, and it changes both applications.
-
-## Shared database shape — agreed on paper, not built
+## Shared database shape — agreed, not built
 
 ```
 HOTEL_SUITE_DB
 ├── meta        schemaVersion, appVersions, created, updated
-├── property    hotel name, city, timezone, logo, footer   SHARED
-├── rooms       inventory, categories, occupancy rules     SHARED
-├── users       accounts, roles, PIN hashes                SHARED
-├── audit       one log across all modules                 SHARED
-├── arrivals    groups, register data                      GAR owns
-└── keys        transactions, businessDays, shifts         HKIM owns
+├── property    hotel name, city, timezone, logo, footer  SHARED
+├── rooms       inventory, categories, occupancy rules    SHARED
+├── users       accounts, roles, PIN hashes               SHARED
+├── audit       one log across all modules                SHARED
+├── arrivals    groups, register data                     GAR owns
+└── keys        transactions, businessDays, shifts        HKIM owns
 ```
 
 **Rooms and property move out of both apps into the shared
@@ -67,23 +62,21 @@ Master. Both apps read one hotel name.
 
 ## Five collisions to resolve at merge
 
-1. **Two databases** — `HKIM_DATABASE` and `hotel_group_operations_v5`
+1. **Two databases** — `HKIM_DATABASE` and
+   `hotel_group_operations_v5`
 2. **Two sources of truth for rooms** — HKIM hardcodes
-   `ROOM.MIN 1, MAX 76` in `constants.js`; GAR has a full Room
-   Master with categories and occupancy rules
+   `ROOM.MIN 1, MAX 76`; GAR has a full Room Master
 3. **Two hotel identities** — HKIM `CONFIG.hotel.name`
    ("Ramada Encore") vs GAR `DB.settings.hotelName`
-4. **Global function collisions** — both define `loadDatabase()`,
-   `saveDatabase()`, `settings`, `reports`. Both are classic
-   scripts in one global scope; on a shared page the later file
-   silently wins.
+4. **Global function collisions** — both define
+   `loadDatabase()`, `saveDatabase()`, `settings`, `reports`.
+   On a shared page the later file silently wins.
 5. **Schema version disagreement** — HKIM `createDatabase()`
-   writes `schema: 2` while `constants.js` declares
-   `SCHEMA_VERSION: 1`
+   writes `schema: 2` while its `constants.js` says `1`
 
-**Meanwhile:** stop divergence getting worse. Room numbering is
-the urgent one — HKIM caps at 76 numeric, GAR allows 3-digit
-numeric or 10-char alphanumeric.
+Meanwhile: stop divergence getting worse. Room numbering is
+urgent — HKIM caps at 76 numeric, GAR allows 3-digit numeric
+or 10-char alphanumeric.
 
 ---
 
@@ -101,7 +94,7 @@ works entirely by copy and paste.
 
 Rules:
 
-- Always name the file. Six JS modules are in play.
+- Always name the file. Eleven JS modules are in play.
 - Always give COMPLETE functions. Never fragments.
 - Never "insert this somewhere" or "add this near".
 - Never reference line numbers. Reference SECTION HEADERS.
@@ -109,70 +102,80 @@ Rules:
 - One phase at a time, ending in a test and a commit.
 - Syntax error → stop everything and fix it first.
 
-**Hard-won rule:** if a phase touches more than about four
-places in one file, **ask for the file and return a complete
-verified replacement instead**. Every multi-patch phase in this
-project has lost a round to a partially applied patch.
+**Two hard-won rules:**
+
+1. **If a phase touches more than about four places in one
+   file, ask for the file and return a complete verified
+   replacement.** Every multi-patch phase has lost a round to
+   a partially applied patch.
+2. **Announce new files at the TOP of the message**, not at
+   the end. They get missed otherwise.
 
 Classify suggestions: 🔴 blocker · 🟡 before v1.0 · 🟢 v1.1
 Always explain WHY a change matters to hotel operations.
 
 ---
 
-# 4. ACTUAL FILE STRUCTURE
+# 4. FILE STRUCTURE
 
 ```
 d:\vikram\group arrival\
-├── Group_Arrival_Register.html    28.6 KB   (NOT index.html)
-├── css/style.css                  ~25 KB
+├── Group_Arrival_Register.html    (NOT index.html)
+├── css/style.css
 ├── js/
-│   ├── dialog.js         9.2 KB   loads 1st
-│   ├── printing.js      14.2 KB   loads 2nd
-│   ├── room-master.js   30.3 KB   loads 3rd
-│   ├── reports.js       25.5 KB   loads 4th
-│   ├── app.js           69.5 KB   loads 5th
-│   └── shortcuts.js      6.8 KB   loads LAST
+│   ├── dialog.js         1st   no dependencies
+│   ├── database.js       2nd   owns DB, GroupRepository
+│   ├── printing.js       3rd   print engine
+│   ├── room-master.js    4th   owns RoomMasterRepository
+│   ├── register.js       5th   owns REGISTER_COLUMNS
+│   ├── dashboard.js      6th
+│   ├── reports.js        7th   on-screen reports
+│   ├── report-print.js   8th   printable reports
+│   ├── groups.js         9th   group lifecycle
+│   ├── app.js           10th   bootstrap, settings, nav
+│   ├── shortcuts.js     11th   depends on everything
+│   └── diagnostics.js   LAST   verifies all of the above
 ├── CLAUDE.md
 ├── PROJECT_TRACKER.md
+├── README.md
+├── CHANGELOG.md
 └── jsconfig.json
 ```
 
-**Load order matters.** `dialog.js` has no dependencies and must
-be first. `shortcuts.js` depends on everything and must be last.
-`app.js` owns `DB` and the bootstrap.
+**Load order is fixed.** `dialog.js` first because nothing
+depends on it. `database.js` second because it declares `DB`
+with `let` and `GroupRepository` with `const` — neither is
+hoisted. `diagnostics.js` last so it can verify the rest.
 
 ## Cache busters — critical
 
-Every script tag carries `?v=N`, all the **same number**:
+Every script tag carries `?v=N`, all the **same number**.
+**After replacing ANY file, change all twelve to the next
+number.** One find-and-replace.
 
-```html
-<script src="js/dialog.js?v=9"></script>
-...
-<script src="js/shortcuts.js?v=9"></script>
-```
-
-**After replacing ANY file, change all six to the next number.**
-One find-and-replace. Live Server caches scripts aggressively and
-several debugging rounds have been lost to stale files.
-
-Also: **the HTML itself caches.** Use DevTools → Network →
-Disable cache while developing, or Empty Cache and Hard Reload.
+The HTML itself also caches. A `<meta http-equiv="Cache-Control"
+content="no-store">` sits in the head for development —
+**remove it before packaging.** Also use DevTools → Network →
+Disable cache.
 
 ## Verify on disk, not in the editor
 
 ```powershell
-Get-ChildItem "js\*.js" | Select-Object Name, Length, LastWriteTime
+Get-ChildItem "js\*.js" | Select-Object Name, Length
 ```
 
 The editor can show new code while disk holds the old file.
+Windows CRLF adds one byte per line, so on-disk size is
+LF size + line count.
 
 ---
 
 # 5. CODING STYLE
 
-- Vanilla JavaScript only. No frameworks, React, TypeScript,
-  build tools or npm.
-- Plain `function` declarations, global scope, no modules or IIFEs
+- Vanilla JavaScript only. No frameworks, React or TypeScript.
+- **No build tools during development. Build tools are allowed
+  at packaging only** — see §12 on distribution.
+- Plain `function` declarations, global scope, no ES modules
 - Generous blank lines and vertical spacing
 - Section headers everywhere:
 
@@ -183,36 +186,37 @@ The editor can show new code while disk holds the old file.
 ```
 
 - Minimal nesting, no clever abstractions
-- New event bindings go in `initialize*Events()`, not inline
-  `onclick` — except where a global is already used that way
+- New event bindings go in `initialize*Events()`
 
 ---
 
 # 6. ARCHITECTURE
 
 ```
-DOMContentLoaded
-      ↓
-initializeApplication()        ← the ONLY bootstrap
-      ↓
-initializeDialogs()
-refreshApplicationSettings()
-initializeNavigation()
-initializeRegisterEvents()
-initializeGroupEvents()
-initializePrintEvents()
-initializeSettingsEvents()
-initializeRoomMaster()
-initializeReports()
-initializeProfessionalTools()
-restoreDraft()
-setInterval timers
-refreshApplication()
-initializeShortcuts()
+DOMContentLoaded  →  initializeApplication()
+      initializeDialogs()
+      refreshApplicationSettings()
+      initializeNavigation()
+      initializeRegisterEvents()
+      initializeRegisterSearch()
+      initializeRestoreBar()
+      initializeGroupEvents()
+      initializePrintEvents()
+      initializeSettingsEvents()
+      initializeRoomMaster()
+      initializeReports()
+      initializeReportPrinting()
+      initializeProfessionalTools()
+      restoreDraft()
+      timers
+      refreshApplication()
+      initializeShortcuts()
 ```
 
-Exactly **one** `DOMContentLoaded` listener, at the bottom of
-`app.js`. Never add another.
+**Exactly one `DOMContentLoaded` for the application**, at the
+bottom of `app.js`. `diagnostics.js` adds a second on purpose,
+delayed 400 ms, so it can check that every module booted. That
+is the only exception.
 
 ## Controllers
 
@@ -224,46 +228,43 @@ Never refresh modules individually from UI code.
 | `refreshApplicationSettings()` | branding, logo, clock |
 | `refreshEntireDashboard()` | KPIs, control center, arrival cards, saved groups |
 | `refreshRegisterViews()` | categories + summary + rooming list + reports |
-| `initializeApplication()` | bootstrap, called once |
 
 ## Repositories
 
 UI must never touch `DB.groups` or `DB.roomMaster` directly.
 
 ```
-GroupRepository       .getAll .get .add .update .remove .count
-RoomMasterRepository  .getCategories .addCategory .renameCategory
-                      .removeCategory .getRule .setRuleField
-                      .getRoomNumbers .getCategory .setRoom
-                      .setRoomsSilently .removeRoom .removeAllRooms
-                      .totalRooms .totalBeds .countByCategory
+GroupRepository       getAll get add update remove count
+RoomMasterRepository  getCategories addCategory renameCategory
+                      removeCategory getRule setRuleField
+                      getRoomNumbers getCategory setRoom
+                      setRoomsSilently removeRoom
+                      removeAllRooms totalRooms totalBeds
+                      countByCategory
 ```
 
 All write methods call `saveDatabase()` internally.
-**This layer is what makes the v2.0 merge feasible** — swapping
-localStorage for HTTP means rewriting repository internals only.
+**This layer is what makes v2.0 feasible** — moving to SQLite
+or an API rewrites repository internals and nothing else.
 
 ## Printing
 
-All output goes through `openPrintWindow(title, html, extraStyles)`.
-Never `window.print()` from UI code. Three documents, all using
-the engine: Print Register, Blank Register, Print Rooming List.
+All output goes through
+`openPrintWindow(title, html, extraStyles)`.
+Never `window.print()` from UI code.
 
 ## Dialogs
 
-**No native `alert` / `confirm` / `prompt` anywhere.** All three
-are replaced by promise-based in-page dialogs in `dialog.js`:
+**No native `alert` / `confirm` / `prompt` anywhere.**
 
 ```javascript
 await showAlert("Saved");
 if (!await showConfirm("Delete?", null, {danger:true})) return;
-const v = await showPrompt("Room number", "101");   // null = cancelled
+const v = await showPrompt("Room", "101");   // null = cancelled
 ```
 
 Call sites must be `async`. Destructive actions pass
-`{danger:true, okLabel:"Delete"}` for a red button.
-`showSaveFlash()` gives a green "✓ Saved" toast on every
-`saveDatabase()`.
+`{danger:true, okLabel:"Delete"}`.
 
 ---
 
@@ -271,53 +272,39 @@ Call sites must be `async`. Destructive actions pass
 
 ```javascript
 DB = {
-
     schemaVersion: 2,
-
-    groups: [
-        {
-            id, groupName, arrivalDate, agent, preparedBy,
-            status, notes, totalRooms, totalPax,
-            createdOn, modifiedOn,        // ISO 8601
-            rooms: [
-                { roomNo, guestName, pax, children,
+    groups: [{
+        id, groupName, arrivalDate, agent, preparedBy,
+        status, notes, totalRooms, totalPax,
+        createdOn, modifiedOn,              // ISO 8601
+        rooms: [{ roomNo, guestName, pax, children,
                   childAges, meal, mobile, vip,
-                  specialRequest }
-            ]
-        }
-    ],
-
+                  specialRequest }]
+    }],
     settings: {
         hotelName, footerText, logo,
-        roomNumbersOnly,        // true = digits only, max 3
-        restrictRoomsToMaster,  // true = block unmapped rooms
-        roomMasterPinHash       // absent when no PIN
+        roomNumbersOnly, restrictRoomsToMaster,
+        roomMasterPinHash
     },
-
     roomMaster: {
-        categories: [ "Deluxe", "Suite" ],
+        categories: [ "Deluxe" ],
         rooms:      { "101": "Deluxe", "401": "" },
         rules:      { "Deluxe": { defaultAdults, maxAdults,
                                   maxChildren, maxOccupancy } }
     },
-
     archive: []
 }
 ```
 
-localStorage keys: `hotel_group_operations_v5`, `GROUP_DRAFT`
+Keys: `hotel_group_operations_v5`, `GROUP_DRAFT`
 
-## Timestamps
+**ISO 8601 timestamps only** (`nowISO()`). `toLocaleString()`
+produced `"28/07/2026, 3:49:33 am"`, which sorts by day-of-month
+and is unparseable by any API. `formatTimestamp()` renders for
+display. `migrateDatabase()` converts legacy records once.
 
-**ISO 8601 only** (`nowISO()`). `toLocaleString()` produced
-`"28/07/2026, 3:49:33 am"`, which sorts by day-of-month and is
-unparseable by any API. `formatTimestamp()` renders for display.
-`migrateDatabase()` converts legacy records once, on load.
-
-## Schema migration
-
-`SCHEMA_VERSION` in `app.js`. Bump it and add an
-`if (from < N)` block in `migrateDatabase()`.
+Bump `SCHEMA_VERSION` and add an `if (from < N)` block to
+migrate.
 
 ---
 
@@ -331,9 +318,11 @@ REGISTER_COLUMNS = { SR:0, ROOM:1, CATEGORY:2, GUEST:3,
                      EXTRA:8 }
 ```
 
-**Never use a raw `cells[n]` index.** Always
-`cells[REGISTER_COLUMNS.NAME]`. This map exists because a
-column shift once silently misaligned the whole register.
+**Never a raw `cells[n]` index.** Always
+`cells[REGISTER_COLUMNS.NAME]`. A column shift once
+misaligned the entire register silently. The `<thead>` count
+must always equal `Object.keys(REGISTER_COLUMNS).length` —
+diagnostics checks this at boot.
 
 ## Occupancy — the anti-hack
 
@@ -342,10 +331,8 @@ a *subset* of pax, never an addition. `adults = pax − children`.
 
 Raising Children can never raise Pax, so moving a person from
 the adult column to the child column cannot create space. The
-loophole is structurally impossible, not policed.
-
-The children input's `max` is set live to
-`min(maxChildren, pax)` and clamps on entry.
+loophole is structurally impossible, not policed. The children
+input's `max` is set live to `min(maxChildren, pax)`.
 
 ## Input rules
 
@@ -359,188 +346,294 @@ The children input's `max` is set live to
 | Mobile | digits, `+`, `-`, space | 15 |
 | Special Request | anything | 80 |
 
-Room mode is `DB.settings.roomNumbersOnly`, toggled in
-Settings → Register Rules, **applied immediately**.
-
 ## Hard blocks on Save
 
-`getInvalidRooms()` returns a numbered problem list. Save is
-blocked, never warned, on:
+`getInvalidRooms()` returns a numbered list. Save is **blocked,
+never warned**, on: room not in the Room Master, duplicate room
+within the group, pax over Max Occupancy, children over Max
+Children, adults over Max Adults.
 
-- room not in the Room Master (when enforcement is on)
-- duplicate room within the group
-- pax over Max Occupancy
-- children over Max Children
-- adults over Max Adults
+## One-step restore
 
-Red cell + label in the Category column: `NOT IN MASTER`,
-`DUPLICATE`, `MAX n PAX`, `MAX n CHILD`, `MAX n ADULTS`.
+Clear Register, Generate Rows and Bulk Import snapshot the
+register before wiping and offer **Restore**. Session-only,
+deliberately not persisted — it would compete with the draft
+banner.
+
+General undo/redo was **declined**: cell edits already have
+native browser undo, and the damage that actually happens is
+bulk replacement.
 
 ## Empty rows
 
 `isEmptyRegisterRow()` — a row counts only once something is
 entered. Pax is ignored because new rows default to 1. Used by
-summary, rooming list and reports so they can never disagree.
+summary, rooming list and reports so they cannot disagree.
 
 ---
 
-# 9. KEYBOARD
+# 9. REPORTS
 
-| Key | Action |
-|---|---|
-| `Alt`+`1`–`6` | Switch tab |
-| `Ctrl`+`S` | Save group (Save Settings on Settings tab) |
-| `Ctrl`+`P` | Print register (rooming list on that tab) |
-| `Ctrl`+`Shift`+`B` | Blank register |
-| `Ctrl`+`Enter` | Add row, cursor into Room |
-| `Ctrl`+`G` | Focus room count |
-| `Ctrl`+`D` | Check duplicates |
-| `F1` / `?` | Shortcut help |
-| `Enter` | Next row, same column |
-| `Esc` | Close dialog |
+**On screen** — Current Group / All Groups scopes, four cards,
+filters by arrival date range, status and agent.
+
+**Printed** — four documents through `openPrintWindow()`:
+Daily Arrival Manifest, Housekeeping Allocation, F&B Covers,
+Management Flash.
+
+**Occupancy is valid for ONE date only.** A room reused on
+different dates cannot be summed into a single percentage, so
+occupancy is reported per arrival date. Cross-group
+double-booking is detected and named.
+
+**Not possible without v1.1 data:** revenue, ADR, RevPAR (no
+rates), departure manifest (no departure date), housekeeping
+status. Reports say so in print rather than showing a
+fabricated number.
+
+---
+
+# 10. KEYBOARD
+
+`Alt`+`1`–`6` tabs · `Ctrl`+`S` save · `Ctrl`+`P` print ·
+`Ctrl`+`Shift`+`B` blank register · `Ctrl`+`Enter` add row ·
+`Ctrl`+`G` room count · `Ctrl`+`D` duplicates · `F1`/`?` help ·
+`Enter` next row same column · `Esc` close dialog
 
 `Ctrl+N` avoided — browsers reserve it. Plain `?` suppressed
-while typing. Shortcuts suppressed while a dialog is open or
-Room Master is PIN-locked.
+while typing. All shortcuts suppressed while a dialog is open
+or Room Master is PIN-locked.
 
 ---
 
-# 10. BUGS FIXED — DO NOT REINTRODUCE
+# 11. DIAGNOSTICS
 
-| Bug | Fix |
+`diagnostics.js` verifies at boot: every function in the
+manifest exists, six global objects exist, 45 element IDs are
+present, register columns match, no module loaded twice, and
+storage usage (warn 75%, error 90%).
+
+```
+Suite Diagnostics — 10 modules, 0 problems, storage 0%
+```
+
+**When it reports many missing functions from one module, look
+for a single parse error above it** — one syntax error kills a
+whole file and every function in it.
+
+**Keep the manifest current.** When a function moves between
+modules, update `MODULE_MANIFEST` in the same phase.
+
+This becomes the post-update verification step and the cloud
+health endpoint.
+
+---
+
+# 12. DISTRIBUTION — recorded, post-v1.0
+
+Developer requirements:
+
+- Commercially distributed to properties
+- Modules must **not ship as plain-text source** — the ask is
+  DLL-like packaging, not obfuscation
+- Updates by **server push or patch installer**
+- Modules deliverable **individually or bundled**
+- **Rollback** required — front office software that breaks
+  mid-shift needs a way back
+
+## Recommended: v2.0 = Electron + SQLite
+
+Browser JavaScript has no DLL equivalent. Electron solves
+several stated goals at once:
+
+| Requirement | Mechanism |
 |---|---|
-| `saveDB()` undefined in GroupRepository | `saveDatabase()` |
-| `getRegisterRows()` declared twice, different schemas | one declaration; `roomNo` / `guestName` / `specialRequest` |
-| Saved Groups delete removed the wrong group when searching | `renderSavedGroups()` carries the real `DB.groups` index through filter and sort |
-| `toISOString()` gave UTC — arrivals wrong before 05:30 IST | `getLocalDateString()` / `getTodayString()` / `getTomorrowString()` |
-| `toLocaleString()` timestamps sorted by day-of-month | ISO 8601 + migration |
-| Five competing `DOMContentLoaded` blocks | one bootstrap |
-| `printBlankRegister()` duplicated in `app.js` | lives only in `printing.js` |
-| `addVIPColumn()` / `addSpecialRequestColumn()` appended phantom headers | functions deleted |
-| Register `<thead>` 7 cells vs `<tbody>` 8 — everything shifted left | headers must match `REGISTER_COLUMNS` exactly |
-| Superseded M8 input filters left in place, hardcoded to old column indexes | removed |
-| E1 collapsible block pasted twice | one copy |
-| `showMealAnalytics()` lost its closing brace | restored |
-| Orphaned `<thead>` with no `<table>`; duplicate `<body>` | removed |
+| Not plain-text source | **bytenode** — V8 bytecode `.jsc` per module |
+| Proper database | **SQLite** via Node |
+| Patch installer | **electron-updater**, differential, signed |
+| Individual or bundled | Both — files stay swappable |
+| Rollback | Built into electron-updater |
+| Commercial feel | Signed `.exe`, no browser |
+
+**No rewrite required.** Electron runs the existing HTML, CSS
+and JavaScript. Eleven modules stay eleven modules. Only the
+shell and storage layer change — and storage is already behind
+the repositories.
+
+Open for the v2.0 design session: manifest format and hosting,
+module-version to `SCHEMA_VERSION` compatibility matrix,
+whether rollback restores data as well as code.
 
 ---
 
-# 11. DECISIONS — DO NOT REOPEN
+# 13. BUGS FIXED — DO NOT REINTRODUCE
+
+| Bug | Effect | Fix |
+|---|---|---|
+| `saveDB()` undefined in repository | every saved group lost on reload | `saveDatabase()` |
+| Filtered index passed to delete | searching then deleting removed the **wrong group** | carry the real `DB.groups` index through filter and sort |
+| `toISOString()` for local dates | arrivals wrong before 05:30 IST, during night audit | `getLocalDateString()` |
+| `toLocaleString()` timestamps | groups sorted by day-of-month | ISO 8601 + migration |
+| `getRegisterRows()` declared twice | blank guest names on print and CSV | one declaration |
+| `<thead>` one column short of body | every value under the wrong heading | headers must match `REGISTER_COLUMNS` |
+| Five competing startup blocks | duplicate bindings | one bootstrap |
+| `printBlankRegister()` duplicated | wrong version ran | lives only in `printing.js` |
+| `addVIPColumn()` appending headers | two empty columns on Rooming List | functions deleted |
+| `clearRegisterFields()` never declared | Clear Register did nothing | declared in `register.js` |
+| Superseded input filters kept | would break the room-mode toggle | removed |
+| Nested scrollbar | two scrollbars on long groups | page scrolls, header sticks to viewport |
+| `window[name]` to detect globals | 6 false "missing object" reports | `new Function("return typeof x")` — top-level `const`/`let` are not on `window` |
+
+---
+
+# 14. DECISIONS — DO NOT REOPEN
 
 | Decision | Outcome |
 |---|---|
-| Suite | Ship GAR and HKIM separately at v1.0, merge at v2.0 |
+| Suite | Ship separately at v1.0, merge at v2.0 |
 | Folder | `js/`, not `modules/` |
 | Entry file | `Group_Arrival_Register.html` |
 | Room model | Inventory-first — rooms exist with or without a category |
 | Occupancy cap | **Total occupants**, not adults |
 | Children | Count per row + one age box each (0–17) |
 | Pax auto-fill | From category Default Adults, stops once manually edited |
+| Auto Room Series | Walks real Room Master inventory; a single number means "start here" |
 | Duplicate rooms | **Hard block** on save |
 | Over-capacity | **Hard block** on save |
 | Category on screen | Arrival Register and Rooming List |
 | Category on print | **Never** — Housekeeping knows the property |
 | Unmapped rooms | Silent grey dash |
-| Room Master PIN | Accident guard only, honestly labelled. Real auth with the v1.1 backend. |
+| Room Master PIN | Accident guard only, honestly labelled |
 | Guests per room | One row = one room; extra guests in Guest Name |
 | Unsaved draft | Restore + Keep/Discard banner, schema-versioned |
+| Destructive actions | Confirm + one-step restore, not general undo |
 | Reports scope | Current Group and All Groups, with filters |
 | Report periods | No weekly / monthly / yearly rollups |
-| Occupancy percentage | Valid for ONE date only — reported per arrival date |
-| Bulk Import panel | Collapsible, starts closed |
-| Sprint order | E before D; D limited to 4 modules |
+| Occupancy percentage | Valid for ONE date only |
+| Storage | localStorage for v1.0; real database at v2.0 |
 
 ---
 
-# 12. ROADMAP
+# 15. ROADMAP
 
 ### Done
-Sprint A register rules · Sprint B reports · Sprint C room master
-and occupancy · Sprint E dialogs, layout, keyboard
+Sprints A–F1 · four modules extracted · reports verified ·
+dialogs · shortcuts · diagnostics · printable reports
 
-### Sprint D — Modularization (4 phases)
-```
-D1  js/database.js   DB, load/save, migration, GroupRepository
-D2  js/register.js   columns, rows, rules, summary, validation
-D3  js/dashboard.js  KPIs, arrival cards, saved groups
-D4  js/groups.js     save/open/delete, import/export, autosave
-```
-`database.js` must load first — it owns `DB`.
-`app.js` ends around 550 lines. Settings and utilities stay.
-Move one, test, commit, next. Split by responsibility.
+### Remaining for v1.0
+- `F2` this refresh
+- `F3` per-module `MODULE_VERSION` reported by diagnostics,
+  `APP_VERSION` in footer and printed documents, remove the
+  dev `no-store` meta tag, tag `v1.0.0`
+- RC1 → **soak test on one real group arrival** → v1.0
 
-### Sprint F — Packaging (3 phases)
-`F1` README.md + CHANGELOG.md
-`F2` refresh CLAUDE.md + PROJECT_TRACKER.md
-`F3` version constant in footer and printed documents, tag `v1.0.0`
+### v1.1 — ordered so each unlocks the next
+1. **Departure date / nights** — real occupancy, everything
+   financial
+2. **Audit trail** — early, so later features are logged from
+   day one; match HKIM's record shape
+3. **Rate tab** — per occupancy per category, internal only:
+   single, double, extra adult, child with bed, child without
+   bed. A room computes itself from occupancy already entered.
+4. ADR / RevPAR / revenue reports
+5. Attachment storage (IndexedDB or SQLite)
+6. Drag-drop attachments per group — email, PDF, Word
+7. **Import and room allocation workflow** — three parts,
+   designed together as one flow:
 
-### Then
-RC1 → soak test on one real group arrival → **Version 1.0**
+   a. **Excel import with column mapping.** Read the file, show
+      the actual header row. Auto-suggest a mapping using simple
+      heuristics (a column headed "Name"/"Guest" pre-selects as
+      Guest Name; "Mobile"/"Phone"/"Contact" pre-selects as
+      Mobile) but the suggestion is always shown to staff for
+      confirmation before anything imports — never committed
+      silently. Remember the mapping per agent, since most reuse
+      their own template. Requires **SheetJS** as a dependency —
+      the first exception to the no-library rule, needs an
+      explicit decision when this phase starts.
+
+   b. **Names load with rooms deliberately blank.** Many agent
+      lists carry guest names with no room numbers at all. The
+      register accepts this rather than blocking on it.
+
+   c. **A separate Room Allocation screen** — not the main
+      register. Unassigned names on one side, live Room Master
+      inventory on the other, search both, drag a name onto a
+      room or assign by click. This is explicitly a **human
+      decision, not a smart/automatic allocation** — the
+      software's job is making the assignment fast, not making
+      the assignment.
+
+   **Never auto-fill from a PDF or scanned document.** Text PDFs
+   have no reliable structure across agents and scans need OCR
+   that mangles transliterated Indian names — a confidently wrong
+   guest name is worse than a blank one, since nobody re-checks a
+   field the software already filled in. If a document must be
+   used, attach it for reference and require full manual entry
+   through the allocation screen above, never automated
+   extraction into a saved group.
+
+### v2.0
+Electron + SQLite + auto-update (§12) · suite merge with
+HKIM (§2)
 
 ---
 
-# 13. v1.1 BACKLOG — NOT NOW
+# 16. TESTING
 
-- **Departure date / nights** — occupancy is arrival-date only
-  without it; a 3-night group reads as one day
-- Multi-guest per room as structured data (nested `guests[]`)
-- Real authentication with a backend (the PIN is not security)
-- Audit trail — child-rate fudging is a management problem, not
-  a code one; an audit log makes it visible
-- Cloud sync · user accounts · undo · advanced search ·
-  database backend · installer · multi-user · ESLint
+**Change → Reload → Console check → Functional test → Commit**
 
----
-
-# 14. TESTING
-
-Every phase: **Change → Reload → Console check → Functional test → Commit**
-
-A clean console shows exactly two lines, nothing red:
+Clean console:
 
 ```
 Hotel Professional Tools Ready
 Hotel Group Operations Suite Initialized
+Suite Diagnostics — 10 modules, 0 problems, storage 0%
 ```
 
 ## Regression checklist
 
 1. Six tabs switch
-2. Add Row → one row · Generate Rows 5 → five rows
-3. Room rejects letters and a 4th digit · Pax caps at 2 digits
-4. Enter moves down the same column, cells do not grow
-5. Every value under its own header (**9 columns**)
-6. Mapped room → category fills and Pax auto-fills
-7. Over-capacity, unmapped or duplicate → red cell, Save blocked
-8. Children clamps to room capacity; age boxes appear per child
-9. Edit any field, wait 2s, F5 → value persists
-10. Save Group → F5 → still listed · search then Delete →
-    correct group removed
-11. Print Register · Blank Register · Print Rooming List —
-    **no Category column on any**
-12. Export JSON · CSV · Open Group · Bulk Import
-13. Room Master: ranges, bulk, rename, delete, occupancy rules,
-    PIN lock, F5 persists
-14. Reports: four cards, both scopes, filters
-15. Settings: logo, footer, both toggles, PIN, backup, restore
-16. Dialogs: Esc cancels, Enter confirms, red on destructive
-17. Shortcuts: Alt+1–6, Ctrl+S, Ctrl+P, Ctrl+Enter, F1
+2. Add Row → one row · Generate 5 → five rows
+3. Room rejects letters and a 4th digit · Pax caps at 2
+4. Enter moves down the column; cells do not grow
+5. Nine columns, every value under its own header
+6. Mapped room → category fills, Pax auto-fills
+7. Unmapped, duplicate or over-capacity → red, Save blocked
+8. Children clamps to capacity; age boxes appear per child
+9. Edit, wait 2s, F5 → value persists
+10. Save → F5 → listed · search then Delete → correct group
+11. Clear / Generate / Bulk Import → confirm + restore bar works
+12. Print Register · Blank · Rooming List — **no Category column**
+13. Four printed reports for a seeded date
+14. Export JSON / CSV · Open Group · Bulk Import
+15. Room Master: ranges, bulk, rename, delete, rules, PIN
+16. Reports: four cards, both scopes, filters
+17. Settings: logo, footer, toggles, PIN, backup, restore,
+    diagnostics
+18. Shortcuts: `Alt+1`–`6`, `Ctrl+S`, `Ctrl+P`, `Ctrl+Enter`, `F1`
 
-## Verification prompt for the IDE
+## Test data
 
-Always end with **"Report only — do not change any files."**
+Seed script plants 3 groups / 25 rooms / 55 pax / 20-room
+master. Verification script checks 24 figures.
+All Groups: 3 groups · 25 rooms · 55 pax · 3 VIP ·
+EP 8 CP 18 MAP 18 AP 8 Not Set 3 · occupancy 40% / 60% / 25%.
 
 ---
 
-# 15. NOTE FOR THE ASSISTANT
+# 17. NOTE FOR THE ASSISTANT
 
-This project has been worked on by more than one AI assistant.
-Past failures came from assuming code existed, giving partial
-snippets, and referencing line numbers.
+More than one AI assistant has worked on this. Past failures
+came from assuming code existed, giving partial snippets, and
+referencing line numbers.
+
+Roughly a third of phases lost a round to a patch not landing.
+Causes by frequency: a skipped step in a multi-step patch; a
+`FIND THIS` block whose whitespace did not match; a replacement
+that took an adjacent closing brace; a file not saved; a cached
+script or HTML; a patch inserted outside its object.
 
 Preserve working code. Refactor in small testable phases.
 Prioritise hotel operations over technical elegance.
 Version 1.0 is about shipping.
-The diagnostics manifest is stale — sixteen group functions are still listed under app.js, and groups.js has no entry. Needs a corrected diagnostics.js.
-Scope the no-build rule to "no build tools during development, build tools at packaging" — required for the Electron path.
-Add the eleven-module load order and the distribution requirements to CLAUDE.md.

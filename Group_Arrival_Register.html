@@ -4,7 +4,6 @@
 <head>
 
     <meta charset="UTF-8">
-    
 
     <meta
         name="viewport"
@@ -379,72 +378,122 @@
 
     <div class="register-toolbar">
 
-        <div class="toolbar-set">
+        <div class="action-groups">
 
-            <input
-                type="number"
-                id="roomCount"
-                placeholder="Rooms"
-                min="1">
+        <div class="action-group">
 
-            <button id="btnGenerateRows">Generate</button>
+            <div class="action-group-title">Build Register</div>
 
-            <button id="btnAddRow">+ Row</button>
+            <div class="action-bar">
 
-            <button onclick="autoGenerateRoomSeries()">Auto Series</button>
+                <input
+                    type="number"
+                    id="roomCount"
+                    placeholder="Rooms"
+                    min="1">
 
-            <button onclick="sortRooms()">Sort</button>
+                <button id="btnGenerateRows">Generate</button>
 
-            <button onclick="clearRegister()">Clear</button>
+                <button id="btnAddRow">+ Row</button>
 
-        </div>
+                <button onclick="autoGenerateRoomSeries()">Auto Series</button>
 
-        <div class="toolbar-set">
+                <button onclick="sortRooms()">Sort</button>
 
-            <button id="btnSaveGroup" class="primary-action">Save Group</button>
+                <button onclick="clearRegister()">Clear</button>
 
-            <button id="btnOpenGroup">Open</button>
-
-            <button id="btnExportJson">JSON</button>
-
-            <button onclick="exportCSV()">CSV</button>
-
-            <input
-                type="file"
-                id="openGroupFile"
-                accept=".json"
-                hidden>
+            </div>
 
         </div>
 
-        <div class="toolbar-set">
+        <div class="action-group">
 
-            <button id="btnPrintRegister">Print</button>
+            <div class="action-group-title">Meal Plan</div>
 
-            <button id="btnPrintBlank">Blank</button>
+            <div class="action-bar">
 
-            <button onclick="showValidationReport()">Duplicates</button>
+                <label class="sr-label" for="bulkMealPlan">
+                    Meal plan for all rows
+                </label>
 
-            <button onclick="showMealAnalytics()">Meals</button>
+                <select id="bulkMealPlan">
+                    <option value="CP">CP — Breakfast</option>
+                    <option value="MAP">MAP — Half Board</option>
+                    <option value="AP">AP — Full Board</option>
+                    <option value="EP">EP — Room Only</option>
+                    <option value="">Not Set</option>
+                </select>
+
+                <button id="btnApplyMealPlan">Apply to All</button>
+
+            </div>
 
         </div>
 
-        <div class="toolbar-set toolbar-toggles">
+        <div class="action-group">
 
-            <button
-                id="btnToggleNotes"
-                class="toggle-button"
-                onclick="toggleNotes()">&#9662; Notes</button>
+            <div class="action-group-title">Group</div>
 
-            <button
-                id="btnToggleBulkImport"
-                class="toggle-button"
-                onclick="toggleBulkImport()">&#9662; Bulk Import</button>
+            <div class="action-bar">
 
-            <button
-                id="btnShortcutHelp"
-                class="toggle-button"
-                title="Keyboard shortcuts (F1)">&#9000;</button>
+                <button id="btnSaveGroup" class="primary-action">Save Group</button>
+
+                <button id="btnOpenGroup">Open</button>
+
+                <button id="btnExportJson">JSON</button>
+
+                <button onclick="exportCSV()">CSV</button>
+
+                <input
+                    type="file"
+                    id="openGroupFile"
+                    accept=".json"
+                    hidden>
+
+            </div>
+
+        </div>
+
+        <div class="action-group">
+
+            <div class="action-group-title">Print &amp; Checks</div>
+
+            <div class="action-bar">
+
+                <button id="btnPrintRegister">Print</button>
+
+                <button id="btnPrintBlank">Blank</button>
+
+                <button onclick="showValidationReport()">Duplicates</button>
+
+                <button onclick="showMealAnalytics()">Meals</button>
+
+            </div>
+
+        </div>
+
+        <div class="action-group toolbar-toggles-group">
+
+            <div class="action-group-title">Panels</div>
+
+            <div class="action-bar">
+
+                <button
+                    id="btnToggleNotes"
+                    class="toggle-button"
+                    onclick="toggleNotes()">&#9662; Notes</button>
+
+                <button
+                    id="btnToggleBulkImport"
+                    class="toggle-button"
+                    onclick="toggleBulkImport()">&#9662; Bulk Import</button>
+
+                <button
+                    id="btnShortcutHelp"
+                    class="toggle-button"
+                    title="Keyboard shortcuts (F1)">&#9000;</button>
+
+            </div>
 
         </div>
 

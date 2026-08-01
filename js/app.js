@@ -614,9 +614,14 @@ function initializeApplication() {
         initializeRegisterSearch();
     }
 
-    if (typeof initializeRestoreBar === "function") {
+   if (typeof initializeRestoreBar === "function") {
 
         initializeRestoreBar();
+    }
+
+    if (typeof initializeBulkMealPlan === "function") {
+
+        initializeBulkMealPlan();
     }
 
     if (typeof initializeGroupEvents === "function") {
@@ -635,6 +640,11 @@ function initializeApplication() {
     /* ---------- Reports ---------- */
 
    initializeReports();
+
+    if (typeof initializeReportPrinting === "function") {
+
+        initializeReportPrinting();
+    }
 
     if (typeof initializeReportPrinting === "function") {
 

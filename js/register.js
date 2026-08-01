@@ -1863,3 +1863,79 @@ function initializeRestoreBar() {
 
 }
 registerModuleVersion("register.js", "1.0.0");
+/* =====================================================
+   BULK MEAL PLAN
+
+   A group almost always arrives on one plan. Setting
+   forty dropdowns individually is not a workflow.
+===================================================== */
+
+async function applyMealToAllRows() {
+
+    const select =
+        document.getElementById("bulkMealPlan");
+
+    const body = getRegisterBody();
+
+    if (!select || !body) return;
+
+    const meal = select.value;
+
+    if (body.rows.length === 0) {
+
+        await showAlert(
+            "Add rows before setting a meal plan.",
+            "No Rows"
+        );
+
+        return;
+    }
+
+    const label = meal === "" ? "Not Set" : meal;
+
+    const ok = await showConfirm(
+        "Set every row to " + label + "?\n\n" +
+        body.rows.length + " row(s) will be changed.",
+        "Apply Meal Plan",
+        { okLabel: "Apply" }
+    );
+
+    if (!ok) return;
+
+    let changed = 0;
+
+    [...body.rows].forEach(row => {
+
+        const dropdown =
+            row.querySelector(".meal-plan");
+
+        if (dropdown && dropdown.value !== meal) {
+
+            dropdown.value = meal;
+
+            changed++;
+        }
+
+    });
+
+    refreshRegisterViews();
+
+    if (typeof scheduleAutoSave === "function") {
+
+        scheduleAutoSave();
+    }
+
+    if (typeof showSaveFlash === "function") {
+
+        showSaveFlash(changed + " row(s) set to " + label);
+    }
+}
+
+
+function initializeBulkMealPlan() {
+
+    document
+        .getElementById("btnApplyMealPlan")
+        ?.addEventListener("click", applyMealToAllRows);
+
+}

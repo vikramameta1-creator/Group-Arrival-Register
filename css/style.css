@@ -3253,3 +3253,97 @@ body{
     font-weight:700;
 
 }
+#bulkMealPlan{
+
+    padding:8px 10px;
+
+    border:1px solid var(--border);
+
+    border-radius:7px;
+
+    font-size:13px;
+
+    background:var(--white);
+
+    color:var(--text);
+
+}
+/* Five action groups need a slightly narrower minimum
+   so they wrap sensibly rather than overflowing. */
+
+.action-groups{
+
+    grid-template-columns:
+        repeat(auto-fit,minmax(230px,1fr));
+
+    gap:12px;
+
+}
+
+.action-group{
+
+    padding:12px 14px 14px;
+
+}
+
+.action-group-title{
+
+    font-size:11px;
+
+    margin-bottom:10px;
+
+    padding-bottom:8px;
+
+    border-bottom:1px solid var(--border);
+
+}
+
+.action-group .action-bar{
+
+    display:flex;
+
+    flex-wrap:wrap;
+
+    gap:8px;
+
+}
+
+.action-group .action-bar button{
+
+    padding:9px 14px;
+
+    font-size:13px;
+
+    border-radius:6px;
+
+    flex:0 0 auto;
+
+}
+
+.action-group .action-bar input[type="number"]{
+
+    flex:1 1 90px;
+
+    min-width:80px;
+
+}
+
+#bulkMealPlan{
+
+    flex:1 1 140px;
+
+    min-width:130px;
+
+}
+
+.toolbar-toggles-group{
+
+    margin-left:0;
+
+}
+
+.toggle-button{
+
+    padding:9px 14px !important;
+
+}

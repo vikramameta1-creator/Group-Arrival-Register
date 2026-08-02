@@ -39,20 +39,7 @@ function escapeHTML(value) {
 
 function openPrintWindow(title, bodyHtml, extraStyles) {
 
-    const printWindow =
-        window.open("", "_blank");
-
-    if (!printWindow) {
-
-        alert(
-            "Unable to open print window.\n\n" +
-            "Please allow pop-ups for this page."
-        );
-
-        return;
-    }
-
-    printWindow.document.write(`
+    const html = `
 <!DOCTYPE html>
 <html>
 
@@ -138,8 +125,6 @@ table.doc-table td{
     padding:5px;
     vertical-align:top;
 }
-
-/* Repeat the header row on every printed page */
 
 table.doc-table thead{
     display:table-header-group;
@@ -229,17 +214,114 @@ ${
 </body>
 
 </html>
-`);
+`;
 
-    printWindow.document.close();
+    /* ---------- Print Via A Hidden Iframe ----------
 
-    printWindow.focus();
+       No separate browser window is opened. Chrome has a
+       well-documented bug where a popup window used for
+       printing can fail to hand real OS-level keyboard
+       focus back to the tab that opened it, and no amount
+       of window.focus() from either side can reliably force
+       it back - it sits below what JavaScript controls.
 
-    setTimeout(function () {
+       An iframe never leaves the page at all, so there is
+       no second window and no focus handoff to fail. This
+       is the standard, robust pattern for "print this one
+       piece of content" and is what most professional web
+       apps use instead of window.open() for printing. */
 
-        printWindow.print();
+    const existing =
+        document.getElementById("printFrame");
 
-    }, 350);
+    if (existing) existing.remove();
+
+    const frame = document.createElement("iframe");
+
+    frame.id = "printFrame";
+
+    frame.style.position = "fixed";
+
+    frame.style.right = "0";
+
+    frame.style.bottom = "0";
+
+    frame.style.width = "0";
+
+    frame.style.height = "0";
+
+    frame.style.border = "0";
+
+    frame.style.visibility = "hidden";
+
+    document.body.appendChild(frame);
+
+    frame.addEventListener("load", function () {
+
+        setTimeout(function () {
+
+            try {
+
+                frame.contentWindow.focus();
+
+                frame.contentWindow.print();
+
+            } catch (error) {
+
+                console.error("Print failed", error);
+
+                alert(
+                    "Unable to print. Please try again, " +
+                    "or check your browser's print settings."
+                );
+            }
+
+        }, 250);
+
+    });
+
+    let cleaned = false;
+
+    function cleanup() {
+
+        if (cleaned) return;
+
+        cleaned = true;
+
+        if (frame && frame.parentNode) {
+
+            frame.remove();
+        }
+    }
+
+    try {
+
+        frame.contentWindow.addEventListener(
+            "afterprint",
+            function () {
+
+                cleanup();
+
+                if (typeof showSaveFlash === "function") {
+
+                    showSaveFlash("Print complete");
+                }
+
+            }
+        );
+
+    } catch (error) {
+
+        /* ignore - the fallback timeout below covers this */
+    }
+
+    /* Not every browser fires afterprint reliably inside an
+       iframe, so the frame is removed on a delay regardless. */
+
+    setTimeout(cleanup, 30000);
+
+    frame.srcdoc = html;
+
 }
 
 

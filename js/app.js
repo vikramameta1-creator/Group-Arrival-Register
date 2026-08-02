@@ -619,10 +619,12 @@ function initializeApplication() {
         initializeRestoreBar();
     }
 
-    if (typeof initializeBulkMealPlan === "function") {
+   if (typeof initializeBulkMealPlan === "function") {
 
         initializeBulkMealPlan();
     }
+
+    enforceArrivalDateFloor();
 
     if (typeof initializeGroupEvents === "function") {
 
@@ -689,3 +691,46 @@ document.addEventListener(
     initializeApplication
 );
 registerModuleVersion("app.js", "1.0.0");
+/* =====================================================
+   ARRIVAL DATE — NO PAST DATES
+
+   A group cannot arrive in the past. The field's native
+   min= attribute blocks the calendar picker; the change
+   listener catches typed or pasted dates the picker
+   can't prevent.
+===================================================== */
+
+function enforceArrivalDateFloor() {
+
+    const input =
+        document.getElementById("arrivalDate");
+
+    if (!input) return;
+
+    const today =
+        typeof getTodayString === "function"
+            ? getTodayString()
+            : new Date().toISOString().slice(0, 10);
+
+    input.min = today;
+
+    input.addEventListener("change", async function () {
+
+        if (this.value && this.value < today) {
+
+            await showAlert(
+                "Arrival date cannot be in the past.\n\n" +
+                "It has been reset to today.",
+                "Invalid Date"
+            );
+
+            this.value = today;
+
+            if (typeof scheduleAutoSave === "function") {
+
+                scheduleAutoSave();
+            }
+        }
+
+    });
+}

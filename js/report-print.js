@@ -244,6 +244,88 @@ function buildNoDataDocument(title, subtitle, message) {
    REPORT A : DAILY ARRIVAL MANIFEST
 ===================================================== */
 
+/* =====================================================
+   BLANK MANIFEST FALLBACK
+
+   If no groups are scheduled for the requested date, a
+   blank arrival register is printed instead of a bare
+   "no data" page - so front office has a usable, ready
+   form in hand rather than a note saying nothing exists.
+   The page states plainly why it is blank, so it is
+   self-explanatory to anyone who finds it later.
+===================================================== */
+
+function printBlankManifestFallback(date) {
+
+    const rowCount = 25;
+
+    let tableRows = "";
+
+    for (let i = 1; i <= rowCount; i++) {
+
+        tableRows += `
+        <tr>
+            <td>${i}</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        `;
+    }
+
+    const html = `
+
+${buildReportHeader(
+    "DAILY GROUP ARRIVAL MANIFEST",
+    "Arrivals on " + date
+)}
+
+<p class="doc-warning">
+    No groups are currently scheduled to arrive on
+    ${reportPrintEscape(date)}. A blank register is
+    provided below for manual use.
+    Printed ${reportPrintEscape(new Date().toLocaleString())}.
+</p>
+
+<table class="doc-table">
+
+    <thead>
+        <tr>
+            <th>Sr</th>
+            <th>Room</th>
+            <th>Guest Name</th>
+            <th>Pax</th>
+            <th>Meal</th>
+            <th>Mobile No</th>
+            <th>Guest Signature</th>
+        </tr>
+    </thead>
+
+    <tbody>${tableRows}</tbody>
+
+</table>
+
+${buildSignOff(["Front Office", "Duty Manager"])}
+
+`;
+
+    const styles =
+        REGISTER_COLUMN_STYLES +
+        `
+        table.doc-table td{ height:34px; }
+        `;
+
+    openPrintWindow(
+        "Daily Arrival Manifest — Blank",
+        html,
+        styles
+    );
+}
+
+
 function printArrivalManifest() {
 
     const date = getReportDate();
@@ -254,15 +336,7 @@ function printArrivalManifest() {
 
     if (groups.length === 0) {
 
-        openPrintWindow(
-            title,
-            buildNoDataDocument(
-                title,
-                "Arrivals on " + date,
-                "No group arrivals recorded for this date."
-            ),
-            ""
-        );
+        printBlankManifestFallback(date);
 
         return;
     }
@@ -1266,4 +1340,5 @@ function initializeReportPrinting() {
     updateReportDateMode();
 
 }
+
 registerModuleVersion("report-print.js", "1.0.0");

@@ -79,7 +79,21 @@ function createRowHTML(
 
         <td class="roomCategory category-unmapped">—</td>
 
-        <td contenteditable="true">${guest}</td>
+        <td class="guestCell">
+
+            <div class="guestCellHeader">
+
+                <button
+                    type="button"
+                    class="addGuestBtn"
+                    tabindex="-1"
+                    title="Add another guest to this room">+ Guest</button>
+
+            </div>
+
+            <div class="guestEditable" contenteditable="true">${guest}</div>
+
+        </td>
 
         <td contenteditable="true">${pax}</td>
 
@@ -128,6 +142,23 @@ function createRowHTML(
                 maxlength="80"
                 placeholder="Special Request"
                 style="width:95%;margin-top:5px;">
+
+            <br>
+
+            <label class="checkoutOverrideToggle">
+
+                <input
+                    type="checkbox"
+                    class="checkoutOverrideCheck">
+
+                ✎ Different checkout
+
+            </label>
+
+            <input
+                type="date"
+                class="checkoutOverrideDate"
+                style="display:none;">
 
         </td>
 
@@ -192,6 +223,7 @@ function getRegisterRows() {
 
             guestName:
                 row.cells[REGISTER_COLUMNS.GUEST]
+                ?.querySelector(".guestEditable")
                 ?.innerText.trim() || "",
 
             pax:      pax,
@@ -216,7 +248,17 @@ function getRegisterRows() {
 
             specialRequest:
                 row.querySelector(".specialRequest")
-                ?.value?.trim() || ""
+                ?.value?.trim() || "",
+
+            departureOverride:
+                row.querySelector(".checkoutOverrideCheck")
+                ?.checked
+                    ? (row.querySelector(".checkoutOverrideDate")
+                        ?.value || "")
+                    : "",
+
+            checkedOut:
+                row.dataset.checkedOut === "1"
 
         });
 
@@ -274,9 +316,96 @@ function loadRegisterRows(rows = []) {
 
         renderChildAges(currentRow, row.childAges || []);
 
+        updateGuestHintState(currentRow);
+
+        const overrideCheck =
+            currentRow.querySelector(".checkoutOverrideCheck");
+
+        const overrideDate =
+            currentRow.querySelector(".checkoutOverrideDate");
+
+        if (overrideCheck && overrideDate) {
+
+            const hasOverride = !!row.departureOverride;
+
+            overrideCheck.checked = hasOverride;
+
+            overrideDate.style.display =
+                hasOverride ? "" : "none";
+
+            overrideDate.value = row.departureOverride || "";
+        }
+
+        currentRow.dataset.checkedOut =
+            row.checkedOut ? "1" : "0";
+
     });
 
     refreshRegisterViews();
+}
+
+
+/* =====================================================
+   PER-ROOM CHECKOUT OVERRIDE
+
+   Ticking the box reveals a date picker for that one
+   room, defaulted to the group's own departure date so
+   it starts as a sensible value rather than blank.
+   Unticking clears the override entirely - that room
+   goes back to following the group.
+===================================================== */
+
+function initializeCheckoutOverrides() {
+
+    const body = getRegisterBody();
+
+    if (!body) return;
+
+    body.addEventListener("change", function (event) {
+
+        if (
+            !event.target.classList ||
+            !event.target.classList.contains(
+                "checkoutOverrideCheck"
+            )
+        ) {
+            return;
+        }
+
+        const row = event.target.closest("tr");
+
+        const dateInput =
+            row?.querySelector(".checkoutOverrideDate");
+
+        if (!dateInput) return;
+
+        if (event.target.checked) {
+
+            dateInput.style.display = "";
+
+            if (!dateInput.value) {
+
+                const groupDeparture =
+                    document.getElementById("departureDate")
+                    ?.value || "";
+
+                dateInput.value = groupDeparture;
+            }
+
+        } else {
+
+            dateInput.style.display = "none";
+
+            dateInput.value = "";
+        }
+
+        if (typeof scheduleAutoSave === "function") {
+
+            scheduleAutoSave();
+        }
+
+    });
+
 }
 
 
@@ -811,13 +940,29 @@ function getInvalidRooms() {
 
     const problems = [];
 
-    const seen = {};
-
     const enforce = isRoomMasterEnforced();
 
-    getRegisterRows().forEach((row, index) => {
+    const rows = getRegisterRows();
 
-        const line = "Row " + (index + 1) + " — ";
+    /* Count every room number first, so BOTH sides of a
+       duplicate are flagged - not just whichever one was
+       typed second. A duplicate is only obvious to a
+       receptionist if every instance of it is marked. */
+
+    const counts = {};
+
+    rows.forEach(row => {
+
+        if (!row.roomNo) return;
+
+        counts[row.roomNo] =
+            (counts[row.roomNo] || 0) + 1;
+
+    });
+
+    rows.forEach((row, index) => {
+
+        const line = "Sr " + (index + 1) + " — ";
 
         if (!row.roomNo) return;
 
@@ -833,16 +978,12 @@ function getInvalidRooms() {
             );
         }
 
-        if (seen[row.roomNo]) {
+        if (counts[row.roomNo] > 1) {
 
             problems.push(
                 line + "room " + row.roomNo +
-                " is already used in row " + seen[row.roomNo]
+                " is used in more than one row of this group"
             );
-
-        } else {
-
-            seen[row.roomNo] = index + 1;
         }
 
         const capacity = getRowCapacityError(row);
@@ -871,7 +1012,22 @@ function updateRegisterCategories() {
 
     const rows = getRegisterRows();
 
-    const seen = {};
+    /* Count every room number first, so BOTH sides of a
+       duplicate show red - not just whichever row was
+       typed second. Matches getInvalidRooms(). */
+
+    const counts = {};
+
+    rows.forEach(data => {
+
+        const room = data.roomNo || "";
+
+        if (room) {
+
+            counts[room] = (counts[room] || 0) + 1;
+        }
+
+    });
 
     [...body.rows].forEach((element, index) => {
 
@@ -902,7 +1058,7 @@ function updateRegisterCategories() {
 
                 error = "NOT IN MASTER";
 
-            } else if (seen[room]) {
+            } else if (counts[room] > 1) {
 
                 error = "DUPLICATE";
 
@@ -910,8 +1066,6 @@ function updateRegisterCategories() {
 
                 error = getRowCapacityError(data);
             }
-
-            if (!seen[room]) seen[room] = index + 1;
         }
 
         if (error) {
@@ -1094,8 +1248,8 @@ const REGISTER_LIMITS = {
     },
 
     guest: {
-        pattern:   /[\r\n\t]/g,
-        maxLength: 60
+        pattern:   /[\r\t]/g,
+        maxLength: 220
     },
 
     pax: {
@@ -1140,7 +1294,30 @@ function getRegisterCellRule(cellIndex) {
 }
 
 
+function getGuestEditTarget(startNode) {
+
+    if (!startNode || !startNode.closest) return null;
+
+    return startNode.closest(".guestEditable");
+}
+
+
 function getRuleForEvent(event) {
+
+    const guestEdit =
+        getGuestEditTarget(event.target);
+
+    if (guestEdit) {
+
+        const td = guestEdit.closest("td");
+
+        const rule =
+            getRegisterCellRule(REGISTER_COLUMNS.GUEST);
+
+        return rule
+            ? { cell: guestEdit, td: td, rule: rule }
+            : null;
+    }
 
     const cell =
         event.target && event.target.closest
@@ -1152,7 +1329,7 @@ function getRuleForEvent(event) {
     const rule =
         getRegisterCellRule(cell.cellIndex);
 
-    return rule ? { cell, rule } : null;
+    return rule ? { cell, td: cell, rule } : null;
 }
 
 
@@ -1272,9 +1449,199 @@ function placeCaretAtEnd(element) {
 }
 
 
+/* =====================================================
+   GUEST NAME - MULTIPLE GUESTS PER ROOM
+
+   Guest Name accepts more than one line so a shared
+   room can list every occupant. Enter still moves to
+   the next row, unchanged, everywhere in the register.
+   Down Arrow adds a new guest line specifically inside
+   this column, capped at the room's Max Occupancy from
+   the Room Master (falling back to the default rule
+   when the room is not mapped).
+===================================================== */
+
+function getGuestLineLimit(row) {
+
+    const roomNo =
+        row.cells[REGISTER_COLUMNS.ROOM]
+        ?.innerText.trim() || "";
+
+    let limit =
+        typeof DEFAULT_OCCUPANCY_RULE !== "undefined"
+            ? DEFAULT_OCCUPANCY_RULE.maxOccupancy
+            : 3;
+
+    if (
+        roomNo &&
+        typeof getRoomCategory === "function" &&
+        getRoomCategory(roomNo) &&
+        typeof getRoomOccupancyRule === "function"
+    ) {
+
+        limit = getRoomOccupancyRule(roomNo).maxOccupancy;
+    }
+
+    return limit < 1 ? 1 : limit;
+}
+
+
+function countGuestLines(guestEditable) {
+
+    if (!guestEditable) return 0;
+
+    const text = guestEditable.innerText || "";
+
+    return text === "" ? 1 : text.split("\n").length;
+}
+
+
+function updateGuestHintState(row) {
+
+    if (!row) return;
+
+    const td = row.querySelector("td.guestCell");
+
+    const guestEditable =
+        row.querySelector(".guestEditable");
+
+    const button =
+        row.querySelector(".addGuestBtn");
+
+    if (!td || !guestEditable) return;
+
+    const limit = getGuestLineLimit(row);
+
+    const lines = countGuestLines(guestEditable);
+
+    const atLimit = lines >= limit;
+
+    td.classList.toggle("guest-limit-reached", atLimit);
+
+    if (button) {
+
+        button.disabled = atLimit;
+
+        button.textContent = atLimit ? "Full" : "+ Guest";
+
+        button.title =
+            atLimit
+                ? "This room is at its occupancy limit"
+                : "Add another guest to this room";
+    }
+}
+
+
+/* =====================================================
+   ADD GUEST LINE
+
+   Always appends a fresh, empty line at the TRUE END of
+   the guest text - regardless of where the caret happens
+   to sit - so guests can never be inserted out of order
+   partway through an existing name. Returns false (and
+   does nothing) once the room's occupancy cap is reached.
+===================================================== */
+
+function addGuestLine(guestEditable, row) {
+
+    if (!guestEditable || !row) return false;
+
+    const limit = getGuestLineLimit(row);
+
+    const lines = countGuestLines(guestEditable);
+
+    if (lines >= limit) return false;
+
+    placeCaretAtEnd(guestEditable);
+
+    document.execCommand("insertLineBreak");
+
+    updateGuestHintState(row);
+
+    if (typeof scheduleAutoSave === "function") {
+
+        scheduleAutoSave();
+    }
+
+    return true;
+}
+
+
+function focusNextRowSameColumn(td) {
+
+    const row = td.parentElement;
+
+    const nextRow = row.nextElementSibling;
+
+    if (!nextRow) {
+
+        if (
+            td.classList.contains("guestCell") &&
+            td.querySelector(".guestEditable")
+        ) {
+
+            td.querySelector(".guestEditable").blur();
+
+        } else {
+
+            td.blur();
+        }
+
+        return;
+    }
+
+    const nextTd = nextRow.cells[td.cellIndex];
+
+    if (!nextTd) return;
+
+    if (nextTd.classList.contains("guestCell")) {
+
+        const target =
+            nextTd.querySelector(".guestEditable");
+
+        if (target) placeCaretAtEnd(target);
+
+        return;
+    }
+
+    if (nextTd.isContentEditable) {
+
+        placeCaretAtEnd(nextTd);
+    }
+}
+
+
 function handleRegisterKeydown(event) {
 
+    if (event.key === "ArrowDown") {
+
+        const guestEdit =
+            getGuestEditTarget(event.target);
+
+        if (!guestEdit) return;
+
+        const row = guestEdit.closest("tr");
+
+        if (!addGuestLine(guestEdit, row)) return;
+
+        event.preventDefault();
+
+        return;
+    }
+
     if (event.key !== "Enter") return;
+
+    const guestEdit =
+        getGuestEditTarget(event.target);
+
+    if (guestEdit) {
+
+        event.preventDefault();
+
+        focusNextRowSameColumn(guestEdit.closest("td"));
+
+        return;
+    }
 
     const cell =
         event.target && event.target.closest
@@ -1289,27 +1656,7 @@ function handleRegisterKeydown(event) {
 
     event.preventDefault();
 
-    const row = cell.parentElement;
-
-    const nextRow = row.nextElementSibling;
-
-    if (!nextRow) {
-
-        cell.blur();
-
-        return;
-    }
-
-    const nextCell =
-        nextRow.cells[cell.cellIndex];
-
-    if (
-        nextCell &&
-        nextCell.isContentEditable
-    ) {
-
-        placeCaretAtEnd(nextCell);
-    }
+    focusNextRowSameColumn(cell);
 }
 
 
@@ -1533,6 +1880,41 @@ function initializeRegisterEvents() {
     document
         .getElementById("btnProcessImport")
         ?.addEventListener("click", processBulkImport);
+
+    initializeCheckoutOverrides();
+
+    /* Delegated - rows are created and destroyed
+       constantly, so the button is caught by a single
+       listener on the table body rather than being
+       individually bound (and lost) per row. */
+
+    if (body) {
+
+        body.addEventListener("click", function (event) {
+
+            const button =
+                event.target.closest(".addGuestBtn");
+
+            if (!button) return;
+
+            const td = button.closest("td.guestCell");
+
+            const guestEditable =
+                td?.querySelector(".guestEditable");
+
+            const row = td?.closest("tr");
+
+            if (!guestEditable || !row) return;
+
+            const added = addGuestLine(guestEditable, row);
+
+            if (added) {
+
+                placeCaretAtEnd(guestEditable);
+            }
+
+        });
+    }
 }
 
 
@@ -1590,6 +1972,18 @@ function handleRegisterInput(event) {
         ) {
 
             renderChildAges(row);
+
+            updateGuestHintState(row);
+        }
+
+        /* Guest lines changed — recheck against the cap */
+
+        if (
+            cell &&
+            cell.cellIndex === REGISTER_COLUMNS.GUEST
+        ) {
+
+            updateGuestHintState(row);
         }
 
     }

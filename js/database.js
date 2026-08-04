@@ -32,7 +32,7 @@ const STORAGE_KEY = "hotel_group_operations_v5";
 /* Bump when the stored shape changes, then add a
    migration step in migrateDatabase(). */
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const DEFAULT_DB = {
 
@@ -141,6 +141,69 @@ function formatTimestamp(value) {
 
 
 /* =====================================================
+   DEPARTURE DATE HELPERS
+
+   A group carries one default departure date. Any room
+   can override it individually - same pattern already
+   used for Pax and Children. Everything that needs "when
+   does this room actually leave" calls
+   getRoomDepartureDate() rather than re-deriving the
+   precedence itself.
+===================================================== */
+
+function addDaysToDate(dateString, days) {
+
+    if (!dateString) return "";
+
+    const date = new Date(dateString);
+
+    if (isNaN(date.getTime())) return "";
+
+    date.setDate(date.getDate() + days);
+
+    return date.toISOString().slice(0, 10);
+}
+
+
+function computeNightsBetween(arrivalDate, departureDate) {
+
+    if (!arrivalDate || !departureDate) return 0;
+
+    const arrival = new Date(arrivalDate);
+
+    const departure = new Date(departureDate);
+
+    if (
+        isNaN(arrival.getTime()) ||
+        isNaN(departure.getTime())
+    ) {
+
+        return 0;
+    }
+
+    const nights =
+        Math.round(
+            (departure.getTime() - arrival.getTime()) /
+            86400000
+        );
+
+    return nights > 0 ? nights : 0;
+}
+
+
+function getRoomDepartureDate(group, room) {
+
+    if (!group) return "";
+
+    return (
+        (room && room.departureOverride) ||
+        group.departureDate ||
+        ""
+    );
+}
+
+
+/* =====================================================
    SCHEMA MIGRATION
 ===================================================== */
 
@@ -168,6 +231,55 @@ function migrateDatabase(db) {
             "Migrated " +
             (db.groups || []).length +
             " group(s) to ISO timestamps."
+        );
+    }
+
+    /* ---------- 2 -> 3 : Departure dates ---------- */
+
+    if (from < 3) {
+
+        (db.groups || []).forEach(group => {
+
+            if (!group.departureDate) {
+
+                group.departureDate =
+                    addDaysToDate(group.arrivalDate, 1);
+            }
+
+            if (typeof group.nights !== "number") {
+
+                group.nights =
+                    computeNightsBetween(
+                        group.arrivalDate,
+                        group.departureDate
+                    ) || 1;
+            }
+
+            if (typeof group.noShowFlag !== "boolean") {
+
+                group.noShowFlag = false;
+            }
+
+            (group.rooms || []).forEach(room => {
+
+                if (typeof room.departureOverride !== "string") {
+
+                    room.departureOverride = "";
+                }
+
+                if (typeof room.checkedOut !== "boolean") {
+
+                    room.checkedOut = false;
+                }
+
+            });
+
+        });
+
+        console.log(
+            "Migrated " +
+            (db.groups || []).length +
+            " group(s) to include departure dates."
         );
     }
 

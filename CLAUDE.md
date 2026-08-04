@@ -121,20 +121,24 @@ Always explain WHY a change matters to hotel operations.
 ```
 d:\vikram\group arrival\
 ├── Group_Arrival_Register.html    (NOT index.html)
-├── css/style.css
+├── css/style.css         2,995 lines, 22 named sections,
+│                          zero duplicate selectors
 ├── js/
-│   ├── dialog.js         1st   no dependencies
-│   ├── database.js       2nd   owns DB, GroupRepository
-│   ├── printing.js       3rd   print engine
-│   ├── room-master.js    4th   owns RoomMasterRepository
-│   ├── register.js       5th   owns REGISTER_COLUMNS
-│   ├── dashboard.js      6th
-│   ├── reports.js        7th   on-screen reports
-│   ├── report-print.js   8th   printable reports
-│   ├── groups.js         9th   group lifecycle
-│   ├── app.js           10th   bootstrap, settings, nav
-│   ├── shortcuts.js     11th   depends on everything
-│   └── diagnostics.js   LAST   verifies all of the above
+│   ├── version.js         1st   APP_VERSION, EXPECTED_MODULES
+│   ├── dialog.js          2nd   no dependencies
+│   ├── database.js        3rd   owns DB, GroupRepository,
+│   │                             schema v3 (departure dates)
+│   ├── printing.js        4th   print engine (hidden-iframe,
+│   │                             not window.open — see §13)
+│   ├── room-master.js     5th   owns RoomMasterRepository
+│   ├── register.js        6th   owns REGISTER_COLUMNS
+│   ├── dashboard.js       7th
+│   ├── reports.js         8th   on-screen reports
+│   ├── report-print.js    9th   printable reports
+│   ├── groups.js         10th   group lifecycle
+│   ├── app.js             11th  bootstrap only, 735 lines
+│   ├── shortcuts.js       12th  depends on everything
+│   └── diagnostics.js    LAST   verifies all of the above
 ├── CLAUDE.md
 ├── PROJECT_TRACKER.md
 ├── README.md
@@ -142,15 +146,25 @@ d:\vikram\group arrival\
 └── jsconfig.json
 ```
 
-**Load order is fixed.** `dialog.js` first because nothing
-depends on it. `database.js` second because it declares `DB`
-with `let` and `GroupRepository` with `const` — neither is
-hoisted. `diagnostics.js` last so it can verify the rest.
+**Load order is fixed.** `version.js` first — every other
+module registers its own version against it on load.
+`dialog.js` second because nothing else depends on it.
+`database.js` third because it declares `DB` with `let` and
+`GroupRepository` with `const` — neither is hoisted.
+`diagnostics.js` last so it can verify the rest, including
+comparing every loaded module's version against
+`EXPECTED_MODULES`.
+
+**`app.js` is bootstrap and shared services only** — utilities,
+dates, navigation, settings, meal analytics, collapsible
+panels, print/settings event bindings, controllers, the single
+`DOMContentLoaded`. All four Sprint D modularization phases are
+complete; no further extraction is planned for v1.0.
 
 ## Cache busters — critical
 
 Every script tag carries `?v=N`, all the **same number**.
-**After replacing ANY file, change all twelve to the next
+**After replacing ANY file, change all thirteen to the next
 number.** One find-and-replace.
 
 The HTML itself also caches. A `<meta http-equiv="Cache-Control"
@@ -253,6 +267,17 @@ All output goes through
 `openPrintWindow(title, html, extraStyles)`.
 Never `window.print()` from UI code.
 
+**`openPrintWindow()` uses a hidden `<iframe>`, never
+`window.open()`.** Chrome has a documented bug where a popup
+window used for printing can fail to hand real OS-level
+keyboard/mouse focus back to the tab that opened it —
+confirmed via `document.hasFocus()` returning `false` after a
+print, with no console error and no visible extra window. No
+amount of `.focus()` called from either side fixed it
+reliably. An invisible iframe on the same page never creates a
+second window, so there is nothing for focus to get lost
+between. **Do not reintroduce `window.open()` for printing.**
+
 ## Dialogs
 
 **No native `alert` / `confirm` / `prompt` anywhere.**
@@ -272,14 +297,23 @@ Call sites must be `async`. Destructive actions pass
 
 ```javascript
 DB = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     groups: [{
         id, groupName, arrivalDate, agent, preparedBy,
         status, notes, totalRooms, totalPax,
         createdOn, modifiedOn,              // ISO 8601
+
+        departureDate,      // ISO date, group default
+        nights,              // derived from arrival<->departure
+        noShowFlag,          // auto-set, PIN to reverse
+
         rooms: [{ roomNo, guestName, pax, children,
                   childAges, meal, mobile, vip,
-                  specialRequest }]
+                  specialRequest,
+
+                  departureOverride,   // "" = follows group
+                  checkedOut           // per-room, not per-time
+                }]
     }],
     settings: {
         hotelName, footerText, logo,
@@ -305,6 +339,19 @@ display. `migrateDatabase()` converts legacy records once.
 
 Bump `SCHEMA_VERSION` and add an `if (from < N)` block to
 migrate.
+
+## Departure date helpers (database.js)
+
+- `addDaysToDate(dateString, days)` — plain date arithmetic
+- `computeNightsBetween(arrival, departure)` — always ≥ 0
+- `getRoomDepartureDate(group, room)` — **the single source of
+  truth** for "when does this room actually leave":
+  `room.departureOverride || group.departureDate || ""`.
+  Every file that needs a departure date calls this rather than
+  re-deriving the precedence itself.
+
+Full departure-date business rules are in §14, under
+**Departure Dates — Full Spec**.
 
 ---
 
@@ -340,18 +387,88 @@ input's `max` is set live to `min(maxChildren, pax)`.
 |---|---|---|
 | Room (numeric mode) | digits | 3 |
 | Room (free mode) | letters, digits, `-`, space | 10 |
-| Guest Name | anything, whitespace collapsed | 60 |
+| Guest Name | anything, `\r`/`\t` stripped, `\n` allowed | 220 |
 | Pax | digits | 2 |
 | Children | digits, clamped to room capacity | — |
 | Mobile | digits, `+`, `-`, space | 15 |
 | Special Request | anything | 80 |
 
-## Hard blocks on Save
+## Guest Name — multiple guests per room (LOCKED PATTERN)
 
-`getInvalidRooms()` returns a numbered list. Save is **blocked,
-never warned**, on: room not in the Room Master, duplicate room
-within the group, pax over Max Occupancy, children over Max
-Children, adults over Max Adults.
+**Do not rebuild this with a CSS pseudo-element hint.** An
+earlier version put a `::after` hint on the cell itself; it
+collided visually and semantically with a later real-button
+version and had to be torn out. The current structure is final:
+
+```html
+<td class="guestCell">
+    <div class="guestCellHeader">
+        <button type="button" class="addGuestBtn"
+                tabindex="-1">+ Guest</button>
+    </div>
+    <div class="guestEditable" contenteditable="true">
+        ...guest text...
+    </div>
+</td>
+```
+
+- **`.guestEditable`**, not the `<td>`, is the real editable
+  surface. `getRuleForEvent()` resolves to this element
+  specifically for the Guest column via `getGuestEditTarget()`
+  — every downstream function (`handleRegisterBeforeInput`,
+  `handleRegisterCleanup`) already reads `found.cell`
+  generically and needed **zero changes** when this was built,
+  because the targeting fix was isolated to one function.
+- **`getRegisterRows()` reads `.guestEditable`'s `innerText`
+  specifically**, never the whole `<td>` — the `<td>` also
+  contains the button's own text, which must never leak into a
+  saved guest name.
+- **The button lives in its own header strip above the text**,
+  never floating in a corner. A floating corner button
+  overlapped multi-line text as guests were added; the header
+  strip cannot collide regardless of content height.
+- **Adding a guest always moves the caret to the true end of
+  the text first**, via `placeCaretAtEnd()`, before inserting
+  the line break — via the button click or the **Down Arrow**
+  key, both call the same `addGuestLine()`. Without this, a
+  line break could land wherever the caret happened to be,
+  splitting a name mid-word. Guests must always append in
+  order.
+- **Capped by the room's Max Occupancy** from Room Master
+  (`getGuestLineLimit()`), same source of truth as the Children
+  cap. At the limit the button becomes disabled and reads
+  "Full" — driven directly by JavaScript
+  (`button.disabled` / `button.textContent`), not by CSS
+  `content` swapping.
+- **Enter still means "next row," unchanged, everywhere** —
+  including inside Guest Name. Only Down Arrow is special-cased
+  for this one column.
+- One known limitation, not yet closed: a **paste** of
+  multi-line text bypasses the occupancy cap (only the button
+  and Down Arrow enforce it). Low priority — flagged, not
+  blocking.
+
+## Hard blocks on Save AND Print
+
+`getInvalidRooms()` returns a numbered list. **Both** Save and
+Print are blocked on the same list — room not in the Room
+Master, duplicate room within the group, pax over Max
+Occupancy, children over Max Children, adults over Max Adults.
+
+**Print was originally NOT validated** — `printRegister()` and
+`printRoomingList()` read the live register directly with no
+check at all, so a duplicate correctly blocked from Save could
+still be printed and signed. Both now call `getInvalidRooms()`
+first, using the identical numbered-list message Save already
+shows. Any new print path added later must do the same.
+
+**Duplicate-room flagging must be symmetric.** An earlier
+version only flagged the *second* occurrence of a repeated room
+— the first one looked completely valid, silently "winning."
+Both `getInvalidRooms()` and `updateRegisterCategories()` now
+count occurrences first, then flag **every** row involved.
+Never revert to a "have I seen this before" single-pass check
+for duplicate detection.
 
 ## One-step restore
 
@@ -409,12 +526,14 @@ or Room Master is PIN-locked.
 # 11. DIAGNOSTICS
 
 `diagnostics.js` verifies at boot: every function in the
-manifest exists, six global objects exist, 45 element IDs are
-present, register columns match, no module loaded twice, and
-storage usage (warn 75%, error 90%).
+manifest exists, six global objects exist, element IDs are
+present, register columns match, no module loaded twice,
+storage usage (warn 75%, error 90%), and — via `version.js` —
+every module's `registerModuleVersion()` call matches what
+`EXPECTED_MODULES` expects.
 
 ```
-Suite Diagnostics — 10 modules, 0 problems, storage 0%
+Suite Diagnostics — 12 modules, 0 problems, storage 0%
 ```
 
 **When it reports many missing functions from one module, look
@@ -422,7 +541,16 @@ for a single parse error above it** — one syntax error kills a
 whole file and every function in it.
 
 **Keep the manifest current.** When a function moves between
-modules, update `MODULE_MANIFEST` in the same phase.
+modules, update `MODULE_MANIFEST` in `diagnostics.js` in the
+same phase. When a module's actual content changes, its
+`registerModuleVersion()` call at the bottom of that file
+should be bumped too, matched against `EXPECTED_MODULES` in
+`version.js`.
+
+**Version mismatch is the rollback trigger.** A module that
+loads but reports the wrong version means a patch update did
+not apply cleanly — this is different from a module missing
+entirely, and diagnostics reports the two cases separately.
 
 This becomes the post-update verification step and the cloud
 health endpoint.
@@ -483,6 +611,11 @@ whether rollback restores data as well as code.
 | Superseded input filters kept | would break the room-mode toggle | removed |
 | Nested scrollbar | two scrollbars on long groups | page scrolls, header sticks to viewport |
 | `window[name]` to detect globals | 6 false "missing object" reports | `new Function("return typeof x")` — top-level `const`/`let` are not on `window` |
+| Chrome popup print window | keyboard/mouse input frozen on the whole app after printing until manual Alt+Tab | print via hidden `<iframe>`, never `window.open()` — see §6 Printing |
+| Print functions never validated | a duplicate room correctly blocked from Save could still be printed and signed | `printRegister()`/`printRoomingList()` call `getInvalidRooms()` first, same as Save |
+| Duplicate-room flagging was asymmetric | the *first* occurrence of a repeated room was never flagged, only the second — looked like the system "favoured" whichever room was typed first | count occurrences first, flag every row involved — never a single-pass "have I seen this" check |
+| Guest Name `::after` CSS hint | collided visually with a later real `<button>` version — two "+ Guest" indicators rendered on top of each other | `::after` hint removed entirely; the button is a real element in its own header strip — see §8 Guest Name |
+| `initializeReportPrinting()` called twice in bootstrap | wasteful but not user-visible — `addEventListener` with a stable named function reference is a documented no-op on the second identical call | duplicate call removed anyway, for clarity |
 
 ---
 
@@ -498,38 +631,87 @@ whether rollback restores data as well as code.
 | Children | Count per row + one age box each (0–17) |
 | Pax auto-fill | From category Default Adults, stops once manually edited |
 | Auto Room Series | Walks real Room Master inventory; a single number means "start here" |
-| Duplicate rooms | **Hard block** on save |
-| Over-capacity | **Hard block** on save |
+| Duplicate rooms, same group | **Hard block, no override, ever** — not physically possible, this is not a restaurant reservation |
+| Duplicate rooms, different groups, overlapping dates | Hard block by default; **PIN-overridable** for a genuine authorized exception — see Departure Dates below |
+| Over-capacity | **Hard block** on save AND print |
 | Category on screen | Arrival Register and Rooming List |
 | Category on print | **Never** — Housekeeping knows the property |
 | Unmapped rooms | Silent grey dash |
 | Room Master PIN | Accident guard only, honestly labelled |
-| Guests per room | One row = one room; extra guests in Guest Name |
+| Guests per room | One row = one room; extra guests as additional lines inside Guest Name (see §8), never a second row |
 | Unsaved draft | Restore + Keep/Discard banner, schema-versioned |
 | Destructive actions | Confirm + one-step restore, not general undo |
 | Reports scope | Current Group and All Groups, with filters |
 | Report periods | No weekly / monthly / yearly rollups |
 | Occupancy percentage | Valid for ONE date only |
 | Storage | localStorage for v1.0; real database at v2.0 |
+| Printing mechanism | Hidden iframe, never `window.open()` — see §6 |
+
+## Departure Dates — Full Spec (authoritative)
+
+Referenced by `PROJECT_TRACKER.md`. DEP1 (data model) is done;
+DEP2–DEP5 (UI, overlap, auto-checkout, reports) are in progress.
+
+**Checkout is per-room, not per-group, and has no time field.**
+A group has one default `departureDate`; any room can override
+it via `departureOverride` when part of a group leaves on a
+different day. There is no checkout *time* anywhere — a real
+PMS handles that precision; this app only needs dates.
+`checkedOut` is a boolean per room. **Check out one room** flips
+that room's flag. **Check out the whole group** flips every
+room's flag in one action. The group's own status only becomes
+`Checked Out` once every room in it is.
+
+**Nights is the primary input, not departure date.** Type `3`
+in Nights, Departure Date fills itself as Arrival + 3.
+Departure Date can also be picked directly on the calendar,
+which recalculates Nights the other way. **Tab from Arrival
+Date jumps straight into Departure Date.**
+
+**Status auto-behavior:**
+
+| Status | Auto-behavior |
+|---|---|
+| Pending | Never auto-changes. Manual checkout or delete only. |
+| Confirmed | Auto-flags **No Show** once arrival date passes with no check-in. Reversing requires the Manager PIN. |
+| Checked In | Auto-transitions to **Checked Out** once departure date passes. No PIN needed — this is the normal end of a stay, not a correction. |
+| Arrived / Checked Out / Cancelled | Settled states, no further auto-change. |
+
+**Overlap — the rule that matters for accounting:**
+
+- Same room, **same group** → the existing `DUPLICATE` check.
+  Hard block, **no override, ever**. Not physically possible —
+  a group cannot occupy one room twice on one reservation.
+- Same room, **different groups**, overlapping date ranges →
+  new check, not yet built (DEP3). Hard block by default,
+  **PIN-overridable** for a genuine authorized exception (e.g.
+  an agreed late checkout overlapping an early arrival).
+  **Overrides only ever apply across groups, never within one.**
 
 ---
 
 # 15. ROADMAP
 
 ### Done
-Sprints A–F1 · four modules extracted · reports verified ·
-dialogs · shortcuts · diagnostics · printable reports
+Sprints A–F3 · **all four Sprint D modularization phases
+complete** · reports verified · dialogs · shortcuts ·
+diagnostics · printable reports · version registry ·
+README + CHANGELOG
 
 ### Remaining for v1.0
-- `F2` this refresh
-- `F3` per-module `MODULE_VERSION` reported by diagnostics,
-  `APP_VERSION` in footer and printed documents, remove the
-  dev `no-store` meta tag, tag `v1.0.0`
 - RC1 → **soak test on one real group arrival** → v1.0
+- Remove the dev `no-store` meta tag before tagging
 
-### v1.1 — ordered so each unlocks the next
-1. **Departure date / nights** — real occupancy, everything
-   financial
+### Departure dates — IN PROGRESS, not deferred
+
+Full spec is in §14. **DEP1 (data model) is done** — schema v3,
+migration, `getRoomDepartureDate()`. DEP2 (UI) is next; see
+`PROJECT_TRACKER.md` §5 for live phase status. This moved ahead
+of the rest of the v1.1 list below because occupancy accuracy
+and the overlap/no-show rules depend on it.
+
+### v1.1 — remaining items, ordered so each unlocks the next
+1. ~~Departure date / nights~~ — in progress, see above
 2. **Audit trail** — early, so later features are logged from
    day one; match HKIM's record shape
 3. **Rate tab** — per occupancy per category, internal only:
@@ -588,7 +770,7 @@ Clean console:
 ```
 Hotel Professional Tools Ready
 Hotel Group Operations Suite Initialized
-Suite Diagnostics — 10 modules, 0 problems, storage 0%
+Suite Diagnostics — 12 modules, 0 problems, storage 0%
 ```
 
 ## Regression checklist
@@ -599,19 +781,29 @@ Suite Diagnostics — 10 modules, 0 problems, storage 0%
 4. Enter moves down the column; cells do not grow
 5. Nine columns, every value under its own header
 6. Mapped room → category fills, Pax auto-fills
-7. Unmapped, duplicate or over-capacity → red, Save blocked
-8. Children clamps to capacity; age boxes appear per child
-9. Edit, wait 2s, F5 → value persists
-10. Save → F5 → listed · search then Delete → correct group
-11. Clear / Generate / Bulk Import → confirm + restore bar works
-12. Print Register · Blank · Rooming List — **no Category column**
-13. Four printed reports for a seeded date
-14. Export JSON / CSV · Open Group · Bulk Import
-15. Room Master: ranges, bulk, rename, delete, rules, PIN
-16. Reports: four cards, both scopes, filters
-17. Settings: logo, footer, toggles, PIN, backup, restore,
+7. Unmapped, duplicate or over-capacity → red, **Save AND
+   Print both blocked**
+8. Duplicate room → **both** rows flag red, not just the second
+9. Children clamps to capacity; age boxes appear per child
+10. Guest Name: button and Down Arrow both append at the true
+    end regardless of caret position; button disables at the
+    room's occupancy limit
+11. Edit, wait 2s, F5 → value persists
+12. Save → F5 → listed · search then Delete → correct group
+13. Clear / Generate / Bulk Import → confirm + restore bar works
+14. Print Register · Blank · Rooming List — **no Category
+    column**; app stays fully responsive immediately after
+    printing, no Alt+Tab needed
+15. Four printed reports for a seeded date; a manifest date
+    with zero groups prints a blank register with a note,
+    not a bare "no data" message
+16. Export JSON / CSV · Open Group · Bulk Import
+17. Room Master: ranges, bulk, rename, delete, rules, PIN
+18. Reports: four cards, both scopes, filters
+19. Settings: logo, footer, toggles, PIN, backup, restore,
     diagnostics
-18. Shortcuts: `Alt+1`–`6`, `Ctrl+S`, `Ctrl+P`, `Ctrl+Enter`, `F1`
+20. Shortcuts: `Alt+1`–`6`, `Ctrl+S`, `Ctrl+P`, `Ctrl+Enter`, `F1`
+21. Arrival Date rejects any date before today
 
 ## Test data
 

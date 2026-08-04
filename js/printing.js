@@ -270,9 +270,10 @@ ${
 
                 console.error("Print failed", error);
 
-                alert(
+                showAlert(
                     "Unable to print. Please try again, " +
-                    "or check your browser's print settings."
+                    "or check your browser's print settings.",
+                    "Print Failed"
                 );
             }
 
@@ -527,18 +528,41 @@ table.doc-table td:nth-child(7){ width:28%; }
    Names are pre-printed, guests sign on arrival.
 ===================================================== */
 
-function printRegister() {
+async function printRegister() {
 
     const rows = getRegisterRows();
 
     if (rows.length === 0) {
 
-        alert(
-            "The register is empty.\n\n" +
-            "Add rows first, or use Blank Register."
+        await showAlert(
+            "Add rows first, or use Blank Register.",
+            "Register Is Empty"
         );
 
         return;
+    }
+
+    /* Save is blocked on unresolved problems - printing
+       must refuse the same way. A duplicate or over-
+       capacity room that a receptionist can't save should
+       never end up on a signed, printed document either. */
+
+    if (typeof getInvalidRooms === "function") {
+
+        const problems = getInvalidRooms();
+
+        if (problems.length > 0) {
+
+            await showAlert(
+                problems.slice(0, 10).join("\n") +
+                (problems.length > 10
+                    ? "\n\nand " + (problems.length - 10) + " more"
+                    : ""),
+                "Cannot Print — Fix These First"
+            );
+
+            return;
+        }
     }
 
     let tableRows = "";
@@ -609,11 +633,13 @@ ${buildSignOffBlock()}
    Same form, empty, for handwritten entry.
 ===================================================== */
 
-function printBlankRegister() {
+async function printBlankRegister() {
 
-    const input = prompt(
-        "Blank Register Rows (20 / 30 / 40 / 50)",
-        30
+    const input = await showPrompt(
+        "How many rows should the blank register have?",
+        "30",
+        "Blank Register Rows",
+        { inputType: "number", placeholder: "20 / 30 / 40 / 50" }
     );
 
     if (input === null) return;
@@ -622,7 +648,10 @@ function printBlankRegister() {
 
     if (!rows || rows < 1 || rows > 200) {
 
-        alert("Enter a row count between 1 and 200.");
+        await showAlert(
+            "Enter a row count between 1 and 200.",
+            "Invalid Row Count"
+        );
 
         return;
     }
@@ -717,18 +746,40 @@ ${buildSignOffBlock()}
    Carries VIP flags and special requests.
 ===================================================== */
 
-function printRoomingList() {
+async function printRoomingList() {
 
     const rows = getRegisterRows();
 
     if (rows.length === 0) {
 
-        alert(
-            "The rooming list is empty.\n\n" +
-            "Add rows on the Arrival Register first."
+        await showAlert(
+            "Add rows on the Arrival Register first.",
+            "Rooming List Is Empty"
         );
 
         return;
+    }
+
+    /* Same rule as printRegister() - an unresolved
+       duplicate or over-capacity room must not reach
+       Housekeeping's printed copy either. */
+
+    if (typeof getInvalidRooms === "function") {
+
+        const problems = getInvalidRooms();
+
+        if (problems.length > 0) {
+
+            await showAlert(
+                problems.slice(0, 10).join("\n") +
+                (problems.length > 10
+                    ? "\n\nand " + (problems.length - 10) + " more"
+                    : ""),
+                "Cannot Print — Fix These First"
+            );
+
+            return;
+        }
     }
 
     let tableRows = "";

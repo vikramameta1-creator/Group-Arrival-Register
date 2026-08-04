@@ -626,6 +626,8 @@ function initializeApplication() {
 
     enforceArrivalDateFloor();
 
+    initializeDepartureDateSync();
+
     if (typeof initializeGroupEvents === "function") {
 
         initializeGroupEvents();
@@ -642,11 +644,6 @@ function initializeApplication() {
     /* ---------- Reports ---------- */
 
    initializeReports();
-
-    if (typeof initializeReportPrinting === "function") {
-
-        initializeReportPrinting();
-    }
 
     if (typeof initializeReportPrinting === "function") {
 
@@ -732,5 +729,187 @@ function enforceArrivalDateFloor() {
             }
         }
 
+        /* Arrival changed - departure must stay after it,
+           and the night count follows along. */
+
+        syncDepartureFromNights();
+
     });
+}
+
+
+/* =====================================================
+   DEPARTURE DATE / NIGHTS
+
+   Nights is the primary input in most workflows - type a
+   number, Departure Date fills itself in. Departure Date
+   can also be picked directly, which recalculates Nights
+   the other way. Tab from Arrival Date jumps straight
+   into Departure Date, skipping Nights, since typing a
+   number and picking a date are two routes to the same
+   value.
+
+   Departure must be strictly AFTER arrival - hard
+   blocked, same pattern as every other validation rule
+   in this app. Same-day checkout is not offered; if that
+   is ever needed it is a small change to loosen, not a
+   hard one, and loosening later is safer than tightening
+   a rule after real data exists under it.
+===================================================== */
+
+function getNightsInput() {
+
+    return document.getElementById("groupNights");
+}
+
+function getDepartureInput() {
+
+    return document.getElementById("departureDate");
+}
+
+
+function syncDepartureFromNights() {
+
+    const arrivalInput =
+        document.getElementById("arrivalDate");
+
+    const nightsInput = getNightsInput();
+
+    const departureInput = getDepartureInput();
+
+    if (!arrivalInput || !nightsInput || !departureInput) {
+
+        return;
+    }
+
+    const arrival = arrivalInput.value;
+
+    if (!arrival) return;
+
+    let nights = Number(nightsInput.value);
+
+    if (!nights || nights < 1) {
+
+        nights = 1;
+
+        nightsInput.value = 1;
+    }
+
+    if (
+        typeof addDaysToDate === "function"
+    ) {
+
+        departureInput.value =
+            addDaysToDate(arrival, nights);
+    }
+
+    departureInput.min =
+        typeof addDaysToDate === "function"
+            ? addDaysToDate(arrival, 1)
+            : arrival;
+}
+
+
+async function syncNightsFromDeparture() {
+
+    const arrivalInput =
+        document.getElementById("arrivalDate");
+
+    const nightsInput = getNightsInput();
+
+    const departureInput = getDepartureInput();
+
+    if (!arrivalInput || !nightsInput || !departureInput) {
+
+        return;
+    }
+
+    const arrival = arrivalInput.value;
+
+    const departure = departureInput.value;
+
+    if (!arrival || !departure) return;
+
+    if (departure <= arrival) {
+
+        await showAlert(
+            "Departure date must be after the arrival " +
+            "date.\n\n" +
+            "It has been reset.",
+            "Invalid Departure Date"
+        );
+
+        syncDepartureFromNights();
+
+        return;
+    }
+
+    if (typeof computeNightsBetween === "function") {
+
+        nightsInput.value =
+            computeNightsBetween(arrival, departure) || 1;
+    }
+}
+
+
+function initializeDepartureDateSync() {
+
+    const arrivalInput =
+        document.getElementById("arrivalDate");
+
+    const nightsInput = getNightsInput();
+
+    const departureInput = getDepartureInput();
+
+    if (!arrivalInput || !nightsInput || !departureInput) {
+
+        return;
+    }
+
+    /* Tab from Arrival Date lands directly in Departure
+       Date, skipping Nights. */
+
+    arrivalInput.addEventListener("keydown", function (event) {
+
+        if (event.key === "Tab" && !event.shiftKey) {
+
+            event.preventDefault();
+
+            departureInput.focus();
+        }
+
+    });
+
+    nightsInput.addEventListener("input", function () {
+
+        syncDepartureFromNights();
+
+        if (typeof scheduleAutoSave === "function") {
+
+            scheduleAutoSave();
+        }
+
+    });
+
+    departureInput.addEventListener("change", function () {
+
+        syncNightsFromDeparture();
+
+        if (typeof scheduleAutoSave === "function") {
+
+            scheduleAutoSave();
+        }
+
+    });
+
+    /* Seed a sensible default the first time the page
+       loads with an arrival date already set but no
+       departure date yet (e.g. reopening an old draft). */
+
+    if (arrivalInput.value && !departureInput.value) {
+
+        nightsInput.value = nightsInput.value || 1;
+
+        syncDepartureFromNights();
+    }
 }

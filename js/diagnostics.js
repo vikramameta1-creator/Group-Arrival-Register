@@ -77,9 +77,7 @@ const MODULE_MANIFEST = {
         "initializeRegisterSearch", "snapshotRegister",
         "showRestoreBar", "hideRestoreBar",
         "dismissRestore", "restoreLastRegister",
-       "confirmRegisterReplace", "initializeRestoreBar",
-        "applyMealToAllRows", "initializeBulkMealPlan",
-        "clearRegisterFields"
+        "confirmRegisterReplace", "initializeRestoreBar"
     ],
 
     "dashboard.js": [
@@ -708,6 +706,165 @@ function renderDiagnosticsSummary() {
    STARTUP
 ===================================================== */
 
+/* =====================================================
+   DIAGNOSTIC EXPORT
+
+   A hotel with a real problem should be able to send
+   support a file, not dictate console output over a
+   phone call. This builds the same information the
+   on-screen report shows into a plain, timestamped text
+   file the person can download and email.
+===================================================== */
+
+function buildDiagnosticExportText() {
+
+    const result = runDiagnostics();
+
+    const versionInfo =
+        typeof getVersionReport === "function"
+            ? getVersionReport()
+            : null;
+
+    const lines = [];
+
+    lines.push("HOTEL GROUP OPERATIONS SUITE");
+    lines.push("DIAGNOSTIC REPORT");
+    lines.push("");
+    lines.push("Generated : " + new Date().toString());
+
+    if (typeof APP_NAME !== "undefined") {
+
+        lines.push(
+            "Software  : " + APP_NAME +
+            " v" + APP_VERSION +
+            " (build " + APP_BUILD + ")"
+        );
+    }
+
+    if (
+        typeof DB !== "undefined" &&
+        DB.settings &&
+        DB.settings.hotelName
+    ) {
+
+        lines.push("Hotel     : " + DB.settings.hotelName);
+    }
+
+    lines.push("");
+    lines.push("---------------------------------------------");
+    lines.push("SUMMARY");
+    lines.push("---------------------------------------------");
+    lines.push("Modules checked : " + result.moduleCount);
+    lines.push("Problems        : " + result.errors.length);
+    lines.push("Warnings        : " + result.warnings.length);
+    lines.push(
+        "Storage used    : " + result.storage.kb +
+        " KB (" + result.storage.percent + "%)"
+    );
+    lines.push(
+        "Groups saved    : " +
+        (typeof DB !== "undefined" && DB.groups
+            ? DB.groups.length
+            : "?")
+    );
+    lines.push(
+        "Rooms mapped    : " +
+        (typeof RoomMasterRepository !== "undefined"
+            ? RoomMasterRepository.totalRooms()
+            : "?")
+    );
+
+    if (result.problems.length === 0) {
+
+        lines.push("");
+        lines.push("All checks passed.");
+
+    } else {
+
+        lines.push("");
+        lines.push("---------------------------------------------");
+        lines.push("PROBLEMS");
+        lines.push("---------------------------------------------");
+
+        result.problems.forEach(problem => {
+
+            lines.push(
+                "[" + problem.level + "]  " + problem.text
+            );
+
+        });
+    }
+
+    if (versionInfo) {
+
+        lines.push("");
+        lines.push("---------------------------------------------");
+        lines.push("MODULE VERSIONS");
+        lines.push("---------------------------------------------");
+
+        Object.keys(EXPECTED_MODULES)
+            .sort()
+            .forEach(file => {
+
+                const loaded =
+                    loadedModules[file] || "NOT LOADED";
+
+                const flag =
+                    loaded !== EXPECTED_MODULES[file]
+                        ? "  <-- MISMATCH"
+                        : "";
+
+                lines.push(
+                    file.padEnd(20) +
+                    " expected " + EXPECTED_MODULES[file] +
+                    "  loaded " + loaded + flag
+                );
+
+            });
+    }
+
+    lines.push("");
+    lines.push("---------------------------------------------");
+    lines.push(
+        "End of report. Attach or paste this file when " +
+        "contacting support."
+    );
+
+    return lines.join("\n");
+}
+
+
+function exportDiagnosticReport() {
+
+    const text = buildDiagnosticExportText();
+
+    const stamp =
+        new Date().toISOString()
+        .replace(/[:T]/g, "-")
+        .slice(0, 19);
+
+    const blob =
+        new Blob([text], { type: "text/plain" });
+
+    const link =
+        document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+
+    link.download =
+        "diagnostic-report-" + stamp + ".txt";
+
+    link.click();
+
+    URL.revokeObjectURL(link.href);
+
+    if (typeof showSaveFlash === "function") {
+
+        showSaveFlash("Diagnostic report downloaded");
+    }
+}
+
+
 function initializeDiagnostics() {
 
     document
@@ -715,6 +872,13 @@ function initializeDiagnostics() {
         ?.addEventListener(
             "click",
             showDiagnosticsReport
+        );
+
+    document
+        .getElementById("btnExportDiagnostics")
+        ?.addEventListener(
+            "click",
+            exportDiagnosticReport
         );
 
     logDiagnostics();
@@ -734,4 +898,6 @@ document.addEventListener(
 
     }
 );
+
+
 registerModuleVersion("diagnostics.js", "1.0.0");

@@ -1,0 +1,275 @@
+# Changelog
+
+All notable changes to the Group Arrival Register.
+
+Format follows [Keep a Changelog](https://keepachangelog.com).
+Versioning follows [Semantic Versioning](https://semver.org).
+
+---
+
+## [Unreleased]
+
+Work completed since the 1.0.0 entry below was drafted.
+**v1.0.0 has not been tagged yet** — RC1 is pending the soak
+test described in `PROJECT_TRACKER.md`.
+
+### Fixed
+
+- **Print window input freeze** — printing via a popup window
+  could leave the entire application unresponsive to mouse and
+  keyboard until the tab was manually refreshed. Root cause: a
+  documented Chrome bug where a popup used for printing can
+  fail to hand OS-level input focus back to its opener.
+  `openPrintWindow()` now prints from a hidden `<iframe>`
+  instead of `window.open()`, which has no second window for
+  focus to get lost between.
+- **Duplicate rooms could still be printed.** Save correctly
+  blocked a group with a duplicate room, but `printRegister()`
+  and `printRoomingList()` read the live register directly with
+  no validation at all. Both now run the same check Save uses
+  before printing anything.
+- **Duplicate-room detection was asymmetric.** Only the second
+  occurrence of a repeated room was ever flagged — the first
+  looked completely valid. Both the save-blocking check and the
+  on-screen red-cell check now flag every row involved.
+- Validation messages referenced "Row N"; changed to "Sr N" to
+  match the visible column header exactly.
+- All remaining native `alert()`/`prompt()` calls in
+  `printing.js` (including one in `printBlankRegister()` that
+  had been missed in the original dialog-system conversion)
+  replaced with the app's own dialog system.
+- A manifest print for a date with zero scheduled groups now
+  prints a usable 25-row blank register with a note explaining
+  why, instead of a bare "no data" message.
+- Arrival Date no longer accepts a date before today, at the
+  calendar-picker level and as a backstop on manual entry.
+- Bulk apply of one meal plan to every row in the register.
+- Removed a harmless duplicate call to
+  `initializeReportPrinting()` in the application bootstrap.
+
+### Added
+
+- **Multiple guests per room.** Guest Name now accepts more
+  than one line, added via a real button or the Down Arrow key,
+  capped by the room's occupancy limit from Room Master. New
+  lines always append at the true end of the text regardless of
+  cursor position, so guests can never be inserted out of order.
+- **Departure dates — data model.** Groups now carry a default
+  departure date and night count; individual rooms can override
+  it. Every room tracks its own checkout state independently.
+  Existing saved groups are migrated automatically. This is the
+  foundation for the in-progress departure-date feature — see
+  `CLAUDE.md` §14 for the full specification and
+  `PROJECT_TRACKER.md` §5 for live phase status.
+
+### Changed
+
+- `css/style.css` fully deduplicated and reorganized into 22
+  named sections. 43 duplicated selectors resolved (several
+  from whole sections having been pasted in twice across the
+  development session); 3 dead pseudo-element rules removed.
+
+---
+
+## [1.0.0] — 2026-07-30
+
+First release. Front office software for hotel group arrivals.
+
+### Added — Arrival Register
+
+- Group header: name, arrival date, agent, prepared by,
+  status, collapsible notes
+- Row generation by count, single row add, room sorting
+- **Auto Room Series** — assigns rooms from the Room Master,
+  walking real inventory rather than counting upward, so gaps
+  are skipped instead of invented
+- Live **room category** column, filled as a room number is typed
+- **Pax auto-fill** from the room's category default
+- **Children** count with an age field per child (0–17)
+- Meal plan per room — EP, CP, MAP, AP
+- VIP flag and special request per room
+- Input rules: room 3 digits, pax 2 digits, guest name 60
+  characters, mobile 15 characters, special request 80
+- **Enter** moves down the same column
+- Register search across room, guest, mobile and request
+- Sticky column headers and a sticky totals bar
+- Live summary: rooms, pax, EP/CP/MAP/AP
+
+### Added — Room Master
+
+- Room categories with rename and delete
+- Room inventory by single room, range or mixed list
+- Bulk setup from pasted text
+- **Occupancy rules per category** — default adults, max
+  adults, max children, max occupancy
+- Inventory summary with bed capacity
+- Search across room number and category
+- **Manager PIN** protecting the page from accidental changes
+
+### Added — Occupancy control
+
+- **Max Occupancy caps the total people in a room.** Children
+  are a subset of pax, never an addition, so moving a person
+  from the adult column to the child column cannot create
+  space. The loophole is structurally impossible rather than
+  policed.
+- Children field hard-capped live to
+  `min(maxChildren, pax)`
+- Save **blocked**, not warned, on rooms outside the Room
+  Master, duplicate rooms within a group, or any capacity breach
+- Red cell and reason shown in the Category column
+
+### Added — Rooming List
+
+- Automatic view of the open group
+- Category, VIP and special request columns
+- Sort by room
+- Blank rows excluded
+- CSV export
+
+### Added — Dashboard
+
+- KPI cards: groups, rooms, guests, today's arrivals
+- Arrival Control Center: status counts, VIP guests, meal
+  covers, allocated rooms
+- Today's and tomorrow's arrival cards, click to open
+- Saved Groups with search, status badges and last-modified
+
+### Added — Reports
+
+On screen, with **Current Group** and **All Groups** scopes:
+
+- Arrival summary, meal summary, occupancy summary, room
+  category
+- Filters in All Groups mode: arrival date range, status, agent
+- Live count of how many groups a filter matches
+- **Occupancy reported per arrival date**, because a room reused
+  on different dates cannot be summed into a single percentage
+- **Cross-group double-booking detection** — same room, same
+  date, two groups
+- Warning when guests have no meal plan set
+
+### Added — Printable reports
+
+- **Daily Arrival Manifest** — front office and duty manager
+- **Housekeeping Allocation Sheet** — grouped by category with
+  subtotals
+- **Food & Beverage Covers Sheet** — including breakfast, lunch
+  and dinner counts derived from meal plans
+- **Management Flash** — date range, occupancy per date, business
+  by agent, attention list
+
+### Added — Printing
+
+- Central print engine, A4 landscape, repeating column headers,
+  no rows split across pages
+- Group Arrival Register with signature column and sign-off block
+- Blank register with tall handwriting rows
+- Rooming list for Housekeeping
+- Document headers carrying hotel, group, date, agent, prepared
+  by and print timestamp
+- Room categories never printed
+
+### Added — Data and safety
+
+- **One-step restore** — Clear Register, Generate Rows and Bulk
+  Import snapshot the register first and offer to restore
+- **Unsaved draft recovery** with a Keep / Discard banner,
+  schema-versioned so a draft from an older layout is discarded
+  rather than loaded
+- Autosave within a second of any edit, plus a 15-second backstop
+- Save confirmation toast on every write
+- Database backup and restore as JSON
+- **ISO 8601 timestamps** throughout
+- Schema version with a migration hook
+- Bulk import from pasted text
+- Group JSON export and import, carrying schema version
+
+### Added — Interface
+
+- In-page dialogs replacing every browser `alert`, `confirm`
+  and `prompt`, with red confirmation for destructive actions
+- Keyboard shortcuts with an in-app reference (F1)
+- Hotel name, logo and footer branding
+- Collapsible notes and bulk import panels
+- Register rules toggles applied immediately
+
+### Added — Support and maintenance
+
+- **System Diagnostics** — verifies at startup that every
+  cross-module function exists, every required element is
+  present, register columns match the code, no module is loaded
+  twice, and reports storage usage
+- Storage warning at 75%, error at 90%
+- On-screen diagnostics report designed to be read out on a
+  support call
+
+### Architecture
+
+- Nine focused JavaScript modules extracted from a single
+  3,500-line file. `app.js` reduced by 80% to bootstrap and
+  shared services.
+- Repository pattern isolating all storage access, so moving to
+  a database or API changes one file
+- Controller layer — UI never refreshes modules individually
+- `REGISTER_COLUMNS` as the single source of truth for every
+  table cell index
+- Print engine as the only route to printed output
+
+### Fixed during development
+
+| Issue | Effect |
+|---|---|
+| `saveDB()` undefined in the repository | every saved group was lost on reload |
+| Saved Groups passing a filtered index to delete | searching then deleting removed the wrong group, permanently |
+| `toISOString()` used for local dates | arrivals showed the wrong day before 05:30 IST — during night audit |
+| `toLocaleString()` timestamps | saved groups sorted by day-of-month instead of chronologically |
+| `getRegisterRows()` declared twice with different field names | blank guest names on printed registers, blank CSV exports |
+| Register header row one column short of the body | every value displayed under the wrong heading |
+| Five competing startup blocks | duplicate event bindings and repeated dashboard refreshes |
+| `printBlankRegister()` duplicated | the wrong version ran, losing the print layout |
+| `addVIPColumn()` appending headers to a table that already had them | two permanently empty columns on the Rooming List |
+| `clearRegisterFields()` called but never declared | Clear Register and Discard Draft did nothing |
+| Nested scrollbar in the register | two scrollbars on long groups |
+| Superseded input filters left in place with old column indexes | would have silently broken the room-mode toggle |
+
+### Known limits
+
+- Single machine, single user
+- No departure dates, so occupancy is measured on the arrival
+  date only
+- No rates, so no revenue, ADR or RevPAR
+- Manager PIN is an accident guard, not security
+- One row is one room; additional guests go in the guest name
+  field as free text
+
+---
+
+## Planned
+
+### [1.1.0]
+
+Ordered so each item unlocks the next.
+
+1. Departure date and nights — unblocks real occupancy and
+   everything financial
+2. Audit trail — built early so later features are logged from
+   the start
+3. Rate tab — priced per occupancy per category, internal only,
+   never printed
+4. ADR, RevPAR and revenue reports
+5. Attachment storage
+6. Drag-and-drop attachments per group — email, PDF and Word
+   for payment confirmations
+7. CSV and Excel import with column mapping and a review step
+
+### [2.0.0]
+
+- Desktop packaging with a real database and signed installer
+- Automatic updates with rollback
+- Merge with Hotel Key Inventory Management into one suite
+  sharing property, rooms, users and audit log
+
+---
+
+[1.0.0]: https://github.com/vikramameta1-creator/Group-Arrival-Register

@@ -2,8 +2,8 @@
 ## Group Arrival Register — Living Status
 
 **Version:** v1.0.0 RC1
-**Last updated:** 30 July 2026
-**Completion:** ~93%
+**Last updated:** 2 August 2026
+**Completion:** ~97%
 
 Architecture, coding rules and locked decisions live in
 `CLAUDE.md`. This file tracks state, progress and open work.
@@ -13,33 +13,46 @@ Architecture, coding rules and locked decisions live in
 # 1. STATE — HEALTHY
 
 ```
-Suite Diagnostics — 10 modules, 0 problems, storage 0%
+Suite Diagnostics — 12 modules, 0 problems, storage 0%
 ```
 
 ```
 d:\vikram\group arrival\
 ├── Group_Arrival_Register.html
-├── css/style.css
+├── css/style.css              2,995 lines, reorganized into
+│                               22 named sections, zero
+│                               duplicate selectors
 ├── js/
 │   ├── dialog.js          loads 1st
-│   ├── database.js        loads 2nd   owns DB
+│   ├── database.js        loads 2nd   owns DB, schema v3
 │   ├── printing.js        loads 3rd
 │   ├── room-master.js     loads 4th
 │   ├── register.js        loads 5th
 │   ├── dashboard.js       loads 6th
 │   ├── reports.js         loads 7th
 │   ├── report-print.js    loads 8th
-│   ├── app.js             loads 9th
-│   ├── shortcuts.js       loads 10th
+│   ├── groups.js          loads 9th   owns group lifecycle
+│   ├── app.js              735 lines  loads 10th, bootstrap only
+│   ├── shortcuts.js       loads 11th
 │   └── diagnostics.js     loads LAST
 ├── CLAUDE.md
 ├── PROJECT_TRACKER.md
+├── README.md
+├── CHANGELOG.md
 └── jsconfig.json
 ```
 
-All eleven script tags carry the **same** `?v=N`. Bump every
-one after replacing any file. The HTML caches too — use
-DevTools → Network → Disable cache while developing.
+`app.js` is now genuinely just bootstrap and shared services —
+utilities, dates, navigation, settings, meal analytics,
+collapsible panels, print/settings event bindings, controllers,
+the single `DOMContentLoaded`. Everything else has its own file.
+
+All twelve script tags carry the **same** cache-buster
+convention. DevTools → Network → Disable cache while
+developing; the app also carries a dev-only
+`<meta http-equiv="Cache-Control" content="no-store">` in the
+HTML head — **remove this before packaging**, it is
+development-only.
 
 ---
 
@@ -53,42 +66,58 @@ DevTools → Network → Disable cache while developing.
 | SEC1 | Room Master manager PIN |
 | DATA1 | ISO timestamps, schema version, migration framework |
 | E1–E6 | Register layout · dialog engine · all native alerts replaced · keyboard shortcuts · register search and single scrollbar · Auto Series consults Room Master · destructive-action protection with one-step restore |
-| D1–D3 | `database.js`, `register.js`, `dashboard.js` extracted |
+| D1–D4 | `database.js`, `register.js`, `dashboard.js`, `groups.js` extracted — **modularization complete** |
 | DIAG1 | Module health check, storage monitoring, sticky summary bar |
 | RPT1 | Four printable operational reports |
+| F1–F3 | README, CHANGELOG, version registry, `MODULE_VERSION` per file |
+| E7 | Bulk meal plan, arrival-date past-date block |
+| E8 | Print focus-lock fixed — root cause: Chrome popup-window input focus bug. Fixed by replacing `window.open()` print windows with hidden-iframe printing entirely. |
+| E9 | Blank register fallback when a printed manifest date has no groups |
+| E10 | Fixed asymmetric duplicate-room detection — the *first* occurrence of a repeated room was never flagged, only the second. Both `getInvalidRooms()` and `updateRegisterCategories()` now count occurrences and flag every row involved. |
+| E11 | **Print now validates before printing** — `printRegister()` and `printRoomingList()` previously read the live register with no check at all; a duplicate correctly blocked from Save could still be printed. Both now call `getInvalidRooms()` first. All native `alert`/`prompt` in `printing.js` (including a second, previously-unnoticed one in `printBlankRegister()`) converted to the app's dialog system. |
+| DEP1 | Departure-date data model in `database.js` — schema v3, `departureDate`/`nights`/`noShowFlag` on groups, `departureOverride`/`checkedOut` per room, migration for existing saved groups, `getRoomDepartureDate()` helper |
+| REG1 | Multi-line Guest Name — real `.guestEditable` text area + real `.addGuestBtn` button, capped by room occupancy, guaranteed append-at-end ordering (fixes an earlier version where a line could land mid-name depending on caret position) |
+| E14 | `css/style.css` fully deduplicated and reorganized — 43 duplicate selectors resolved, 3 dead `guestCell::after` rules removed, 22 named sections |
+| — | Removed a harmless-but-redundant duplicate call to `initializeReportPrinting()` in the bootstrap |
 
 ---
 
-# 3. REMAINING TO v1.0
+# 3. MODULARIZATION — COMPLETE
 
-### Sprint D — Modularization (1 phase left)
+All four phases of Sprint D are done. `app.js` reduced from its
+original single-file size to 735 lines of bootstrap and shared
+services only. No further extraction planned for v1.0.
 
-| Phase | New file | Moves out |
-|---|---|---|
-| D4 | `js/groups.js` | `getCurrentGroupData`, `loadGroupToScreen`, save/open/delete, group selector, search, archive, JSON, CSV, bulk import, backup, restore, autosave, draft banner |
+---
 
-Leaves `app.js` at roughly 900 lines: utilities, dates,
-navigation, settings, meal analytics, collapsible panels,
-event bindings, controllers, bootstrap.
+# 4. REMAINING TO v1.0
 
-### Sprint F — Packaging (3 phases)
-
-- `F1` README.md + CHANGELOG.md
-- `F2` refresh CLAUDE.md and PROJECT_TRACKER.md to final state
-- `F3` **per-module `MODULE_VERSION` constants** reported by
-  diagnostics, plus `APP_VERSION` in the footer and every
-  printed document, then tag `v1.0.0`
-
-`F3` is designed to serve the update mechanism, not just print
-a footer string. An installer needs per-module versions to
-compare against a manifest.
+### RC1 gate
+- Full regression per §16 of `CLAUDE.md` after tonight's six
+  fixes (E8–E14, DEP1, REG1)
+- Remove the dev-only `no-store` meta tag before tagging
 
 ### Then
 RC1 → **soak test on one real group arrival** → v1.0
 
 ---
 
-# 4. DISTRIBUTION REQUIREMENTS — recorded, not built
+# 5. DEPARTURE DATE PHASE — IN PROGRESS
+
+Full spec agreed and locked (see `CLAUDE.md` §14 for the
+authoritative version). **DEP1 (data model) is done.**
+
+| Phase | Work | Status |
+|---|---|---|
+| DEP1 | `database.js` — schema, migration, `getRoomDepartureDate()` | ✅ Done |
+| DEP2 | `groups.js` — new groups get the new fields; `register.js` — departure date / nights UI, Tab from Arrival → Departure, per-room override control | Next |
+| DEP3 | Overlap detection rewritten for date ranges (not single-date matching); Settings toggle; PIN-overridable exception — **only ever across groups, never within one group** | Pending |
+| DEP4 | Auto-checkout on load; Confirmed→No Show flagging (arrival date passed, never checked in); dashboard flag for overdue/no-show | Pending |
+| DEP5 | Reports and print documents use real occupancy across the full stay, not just arrival date | Pending |
+
+---
+
+# 6. DISTRIBUTION REQUIREMENTS — recorded, not built
 
 Stated by the developer during v1.0. **All post-v1.0.**
 
@@ -102,10 +131,6 @@ Stated by the developer during v1.0. **All post-v1.0.**
 
 ## Recommended path: v2.0 = Electron + SQLite
 
-Browser JavaScript has no DLL equivalent. Electron is the
-standard commercial answer and solves several stated goals at
-once:
-
 | Requirement | Electron mechanism |
 |---|---|
 | Not plain-text source | **bytenode** — V8 bytecode `.jsc` per module |
@@ -115,21 +140,17 @@ once:
 | Rollback | Built into electron-updater |
 | Commercial feel | Signed `.exe` installer, no browser |
 
-**No rewrite required.** Electron runs the existing HTML, CSS
-and JavaScript. The eleven modules stay eleven modules. Only
-the shell and the storage layer change — and storage is
-already isolated behind `GroupRepository` and
-`RoomMasterRepository`, which is why that pattern was worth
-enforcing.
+**No rewrite required.** The twelve modules stay twelve modules.
+Only the shell and storage layer change — storage is already
+isolated behind `GroupRepository` and `RoomMasterRepository`.
 
-**Rule change needed:** `CLAUDE.md` currently forbids build
-tools. Scope it to **no build tools during development, build
-tools at packaging.** Day-to-day editing stays exactly as it
-is — edit a file, hard refresh.
+**Rule already scoped in `CLAUDE.md`:** no build tools during
+development, build tools allowed at packaging only.
 
-**Diagnostics becomes the post-update verification step.** If a
-pushed module fails to load, it is caught at boot rather than
-at first click. That is the rollback trigger.
+`js/version.js` already gives an installer what it needs —
+`EXPECTED_MODULES`, per-file `registerModuleVersion()` calls,
+and `diagnostics.js` comparing loaded vs. expected versions at
+boot. That comparison is the rollback trigger.
 
 Open questions for the v2.0 design session:
 - Version manifest format and where it is hosted
@@ -139,33 +160,29 @@ Open questions for the v2.0 design session:
 
 ---
 
-# 5. OPEN ITEMS
+# 7. OPEN ITEMS
 
 ## 🟡 Before v1.0
 - `printRoomingList()` column widths never visually verified
   against a real printout
-- Cosmetic CSS debt: duplicate selectors (`.app-footer`,
-  `.settings-grid`, two `TABLES` headers), dead rules
-  (`.dashboard-card:nth-child(5)`–`(7)`, `.no-print`),
-  top-level `@page` outside `@media print`, no
-  `:focus-visible` styles
 - `DB.settings.showRoomCategory` unused since RM3 cancelled
+  (category is screen-only, never printed, by design)
 
 ## 🟢 Version 1.1
 Ordered so each unlocks the next.
 
 | # | Work | Unlocks |
 |---|---|---|
-| 1 | **Departure date / nights** | real occupancy, everything financial |
+| 1 | **Departure date / nights** | in progress — see §5 above |
 | 2 | **Audit trail** | do early so later features are logged from day one; match HKIM's record shape |
 | 3 | **Rate tab** — per category, per occupancy, internal only, never printed | revenue |
 | 4 | **ADR / RevPAR / revenue reports** | management reporting |
-| 5 | **IndexedDB or SQLite storage** | attachments |
-| 6 | **Drag-drop attachments** per group — email, PDF, Word for payment confirmations | reference and audit |
-| 7 | **CSV / Excel import** with column mapping and a review step | agent rooming lists |
+| 5 | **Names-first import + drag-drop Room Allocation screen** — agent sends names with no room numbers; register accepts blank rooms; a dedicated allocation screen lets staff search/drag names onto Room Master inventory. Allocation is a human decision, never automatic. | agent rooming lists without a room column |
+| 6 | **Excel/CSV import with column mapping** — auto-suggest based on header text, always shown to staff for confirmation before import, mapping remembered per agent | feeds #5 |
+| 7 | IndexedDB or SQLite storage | attachments |
+| 8 | Drag-drop attachments per group — email, PDF, Word for payment confirmations | reference and audit |
 
-**Rate model** as described by the developer — group rates are
-priced by occupancy, not per room:
+**Rate model** — group rates priced by occupancy, not per room:
 
 ```
 Category → Single occupancy rate
@@ -175,31 +192,29 @@ Category → Single occupancy rate
          → Child without bed
 ```
 
-A room computes itself from the occupancy already entered:
-2 adults → double rate; 3 adults → double + extra adult;
-2 adults + 1 child → double + child with bed. Auto-populated,
-receptionist overrides where the agent negotiated otherwise.
+A room computes itself from the occupancy already entered.
+Auto-populated, receptionist overrides where the agent
+negotiated otherwise.
 
-**On PDF import** — text-based PDFs have extractable text but
-no reliable structure, and scanned ones need OCR that produces
-garbage on transliterated Indian names. Never auto-fill from a
-PDF. Attach it for reference, extract to a review grid, require
-confirmation. Excel and CSV are trustworthy because they have
-real columns. Asking agents for Excel instead of PDF is the
-highest-value process change available and costs no code.
+**On PDF/OCR import** — never auto-fill from a PDF or scanned
+document. Text-based PDFs have no reliable structure across
+agents; scans need OCR that mangles transliterated Indian
+names. A confidently wrong guest name is worse than a blank
+one, since nobody re-checks a field the software already
+filled in. Attach for reference; any extraction goes through
+the same confirm-before-commit review as Excel import.
 
 **General undo/redo** — declined for v1.0. Cell edits already
 have native browser undo; the damage that actually happens is
-bulk replacement, which E6 now covers with one-step restore.
-Revisit only if the restore bar proves insufficient in use.
+bulk replacement, which E6's one-step restore already covers.
 
 ## v2.0
-- Electron + SQLite + auto-update (section 4)
+- Electron + SQLite + auto-update (§6)
 - Suite merge with HKIM (`CLAUDE.md` §2)
 
 ---
 
-# 6. TEST DATA
+# 8. TEST DATA
 
 Seed script plants 3 groups / 25 rooms / 55 pax and a 20-room
 master. Verification script checks 24 figures.
@@ -217,9 +232,15 @@ master. Verification script checks 24 figures.
 Deluxe shows 15 room-nights against 10 physical rooms — correct,
 because 101–105 are used on two different dates.
 
+**Note:** since DEP1's migration, every group in this seed data
+(and any pre-existing saved group) now also carries
+`departureDate` (arrival + 1 night by default), `nights`, and
+`noShowFlag: false`. This does not change any of the figures
+above — DEP2–DEP5 are what will start using these fields.
+
 ---
 
-# 7. PROCESS NOTES
+# 9. PROCESS NOTES
 
 **Roughly a third of phases have lost a round to a patch not
 landing.** Causes by frequency:
@@ -230,28 +251,36 @@ landing.** Causes by frequency:
 4. The file saved to the wrong place, or not saved at all
 5. Browser serving a cached script or HTML
 6. A patch inserted outside the object or function it belonged to
+7. **New (tonight):** a step pasted twice into the same
+   function — caught in `initializeApplication()`'s duplicate
+   `initializeReportPrinting()` call
 
 **Mitigations in force:**
 
 - Phases touching more than ~4 places in one file get a
   complete file replacement instead of patches
-- **New files are announced at the top of the message**, not
-  buried at the end
-- Verify byte size on disk after every replacement:
-  `Get-ChildItem "js\*.js" | Select-Object Name, Length`
-- All eleven cache busters bump together
-- DevTools → Network → Disable cache while developing
-- `logDiagnostics()` after any change — it catches missing
-  functions, missing elements and column mismatches at boot
+- New files are announced at the **top** of the message
+- Verify byte size on disk after every replacement
+- `logDiagnostics()` after any change
+- For large, cross-cutting changes (like tonight's CSS
+  reorganization), work from the actual uploaded file,
+  programmatically parsed and verified — not reconstructed
+  from memory across many prior messages
 
 **One syntax error kills a whole file.** When diagnostics
 reports many missing functions from one module, look for a
 single red parse error above it rather than treating each as a
 separate bug.
 
+**`addEventListener` with a stable, named function reference is
+a documented no-op on the second identical call.** A function
+being bound twice in a bootstrap is dead/wasteful code, not
+automatically a live double-firing bug — check before assuming
+the worst.
+
 ---
 
-# 8. GIT
+# 10. GIT
 
 One commit per completed phase. Never commit broken code
 (violated once during RM5b; recovered).
@@ -259,17 +288,20 @@ One commit per completed phase. Never commit broken code
 ```
 M1 … M13 · RM1 · RM2 · RM4 · RM5a-c · R1 · R2 · R3
 SEC1 · DATA1 · E1 · E2a · E2b · E3 · E4 · E5 · E6
-D1 · D2 · D3 · DIAG1 · RPT1
+D1 · D2 · D3 · D4 · DIAG1 · RPT1 · F1 · F2 · F3
+E7 · E8 · E9 · E10 · E11 · DEP1 · REG1 · E14
 ```
 
 ---
 
-# 9. RESUMING
+# 11. RESUMING
 
-Next action: **D4** — extract `js/groups.js`, the last
-modularization phase.
+Next action: **DEP2** — `groups.js` gets the new departure
+fields on group creation; `register.js` gets the Departure
+Date / Nights inputs, Tab-to-Departure-Date, and the per-room
+override control.
 
 Before starting, confirm:
-- Console shows `10 modules, 0 problems`
+- Console shows `12 modules, 0 problems`
 - `git status` clean and pushed
 - Byte sizes on disk match

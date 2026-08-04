@@ -62,6 +62,21 @@ function getCurrentGroupData() {
                 "arrivalDate"
             )?.value || "",
 
+        departureDate:
+            document.getElementById(
+                "departureDate"
+            )?.value || "",
+
+        nights:
+            Number(
+                document.getElementById(
+                    "groupNights"
+                )?.value || 1
+            ),
+
+        noShowFlag:
+            currentGroupNoShowFlag,
+
         agent:
             document.getElementById(
                 "agentCompany"
@@ -100,6 +115,9 @@ function getCurrentGroupData() {
    LOAD GROUP TO SCREEN
 ===================================================== */
 
+let currentGroupNoShowFlag = false;
+
+
 function loadGroupToScreen(group) {
 
     if (!group) return;
@@ -109,6 +127,8 @@ function loadGroupToScreen(group) {
         groupStatus:  group.status       || "Pending",
         groupName:    group.groupName    || "",
         arrivalDate:  group.arrivalDate  || "",
+        departureDate: group.departureDate || "",
+        groupNights:  group.nights       || 1,
         agentCompany: group.agent        || "",
         preparedBy:   group.preparedBy   || "",
         groupNotes:   group.notes        || ""
@@ -127,7 +147,21 @@ function loadGroupToScreen(group) {
 
     });
 
+    currentGroupNoShowFlag = !!group.noShowFlag;
+
     loadRegisterRows(group.rooms || []);
+
+    if (typeof syncDepartureFromNights === "function") {
+
+        /* Only fills in a departure date if one is
+           genuinely missing - an explicit saved value
+           above is never overwritten. */
+
+        if (!document.getElementById("departureDate")?.value) {
+
+            syncDepartureFromNights();
+        }
+    }
 
     updateDashboardFromRegister();
 }
@@ -689,6 +723,16 @@ function autoSaveCurrentWork() {
         arrivalDate:
             document.getElementById(
                 "arrivalDate"
+            )?.value || "",
+
+        departureDate:
+            document.getElementById(
+                "departureDate"
+            )?.value || "",
+
+        nights:
+            document.getElementById(
+                "groupNights"
             )?.value || "",
 
         agent:

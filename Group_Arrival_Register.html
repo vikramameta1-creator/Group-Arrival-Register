@@ -336,6 +336,7 @@
                     <option value="Arrived">Arrived</option>
                     <option value="Checked In">Checked In</option>
                     <option value="Checked Out">Checked Out</option>
+                    <option value="No Show">No Show</option>
                     <option value="Cancelled">Cancelled</option>
                 </select>
 
@@ -453,6 +454,8 @@
                 <button id="btnExportJson">JSON</button>
 
                 <button onclick="exportCSV()">CSV</button>
+
+                <button id="btnCheckOutGroup">Check Out Group</button>
 
                 <input
                     type="file"
@@ -983,6 +986,7 @@
                     <option value="Arrived">Arrived</option>
                     <option value="Checked In">Checked In</option>
                     <option value="Checked Out">Checked Out</option>
+                    <option value="No Show">No Show</option>
                     <option value="Cancelled">Cancelled</option>
                 </select>
             </div>
@@ -1121,11 +1125,28 @@
 
             </label>
 
+            <label class="toggle-row" for="settingPreventOverlap">
+
+                <input
+                    type="checkbox"
+                    id="settingPreventOverlap"
+                    class="toggle-input"
+                    checked>
+
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
+
+                <span class="toggle-text">
+                    Warn on room bookings that overlap
+                    another group
+                </span>
+
+            </label>
+
             <p class="muted-note">
                 Pax accepts up to 2 digits.
                 Mobile accepts digits, <code>+</code>,
                 <code>-</code> and spaces, up to 15 characters.
-                Both switches apply immediately.
+                All three switches apply immediately.
             </p>
 
         </div>

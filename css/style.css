@@ -2993,3 +2993,38 @@ body{
     background-attachment: local;
 
 }
+.roomCheckedOutToggle{
+
+    font-weight: 700;
+
+}
+
+.roomCheckedOutToggle input[type="checkbox"]{
+
+    width: 16px;
+
+    height: 16px;
+
+    accent-color: var(--success);
+
+    vertical-align: middle;
+
+}
+
+tr.row-checked-out{
+
+    background: #f0f7f0;
+
+}
+
+tr.row-checked-out td{
+
+    color: var(--muted);
+
+}
+
+tr.row-checked-out .roomCheckedOutToggle{
+
+    color: var(--success);
+
+}

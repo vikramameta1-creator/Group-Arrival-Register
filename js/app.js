@@ -239,6 +239,17 @@ function loadSettingsToScreen() {
             DB.settings.restrictRoomsToMaster !== false;
     }
 
+    const overlapInput =
+        document.getElementById(
+            "settingPreventOverlap"
+        );
+
+    if (overlapInput) {
+
+        overlapInput.checked =
+            DB.settings.preventCrossGroupOverlap !== false;
+    }
+
     updateBranding();
 }
 
@@ -553,6 +564,17 @@ function initializeSettingsEvents() {
             refreshRegisterViews();
 
         });
+
+    document
+        .getElementById("settingPreventOverlap")
+        ?.addEventListener("change", function () {
+
+            DB.settings.preventCrossGroupOverlap =
+                this.checked;
+
+            saveDatabase();
+
+        });
 }
 
 
@@ -627,6 +649,13 @@ function initializeApplication() {
     enforceArrivalDateFloor();
 
     initializeDepartureDateSync();
+
+    initializeStatusReversalGuard();
+
+    if (typeof applyAutomaticStatusTransitions === "function") {
+
+        applyAutomaticStatusTransitions();
+    }
 
     if (typeof initializeGroupEvents === "function") {
 
@@ -912,4 +941,184 @@ function initializeDepartureDateSync() {
 
         syncDepartureFromNights();
     }
+}
+
+
+/* =====================================================
+   NO SHOW REVERSAL GUARD
+
+   No Show is normally set automatically (see
+   applyAutomaticStatusTransitions in groups.js). Changing
+   AWAY from it by hand needs the Manager PIN, same as
+   reversing anything else auto-set - a status the
+   receptionist picked themselves never needs this.
+
+   Auto-transitioning INTO Checked Out needs no such
+   guard, per the locked spec - that direction is simply
+   the normal end of a stay, not a correction.
+===================================================== */
+
+/* =====================================================
+   STATUS REVERSAL GUARD
+
+   Two protected states, same Manager PIN mechanism
+   (one PIN for both, deliberately, for now - the
+   developer has flagged a future need for separate
+   authorization levels, logged for v1.1, not built yet).
+
+   No Show:      PIN required only when it was AUTO-set.
+                 A status the receptionist picked
+                 themselves never needs protection to
+                 change again.
+
+   Checked Out:  PIN required ALWAYS, auto-set or
+                 manual - reversing a completed checkout
+                 is a real correction, not something that
+                 should be one accidental dropdown click.
+===================================================== */
+
+function initializeStatusReversalGuard() {
+
+    const statusInput =
+        document.getElementById("groupStatus");
+
+    if (!statusInput) return;
+
+    let previousValue = statusInput.value;
+
+    async function requirePin(promptMessage, revertTo) {
+
+        const pinIsSet =
+            typeof hasRoomMasterPin === "function" &&
+            hasRoomMasterPin();
+
+        if (!pinIsSet) {
+
+            await showAlert(
+                promptMessage +
+                "\n\nNo Manager PIN is set, so this " +
+                "cannot be verified - set one in " +
+                "Settings first.",
+                "Cannot Change Status"
+            );
+
+            return false;
+        }
+
+        const entered = await showPrompt(
+            promptMessage +
+            "\n\nEnter the Manager PIN to change it.",
+            "",
+            "Manager PIN Required",
+            {
+                inputType: "password",
+                maxLength: 4,
+                placeholder: "0000"
+            }
+        );
+
+        if (
+            entered === null ||
+            typeof hashPin !== "function" ||
+            hashPin(entered.trim()) !==
+                DB.settings.roomMasterPinHash
+        ) {
+
+            if (entered !== null) {
+
+                await showAlert("Incorrect PIN.");
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    statusInput.addEventListener("change", async function () {
+
+        const wasAutoNoShow =
+            previousValue === "No Show" &&
+            typeof currentGroupNoShowFlag !== "undefined" &&
+            currentGroupNoShowFlag;
+
+        const wasCheckedOut =
+            previousValue === "Checked Out";
+
+        /* ---------- No Show, only if auto-set ---------- */
+
+        if (
+            wasAutoNoShow &&
+            this.value !== "No Show"
+        ) {
+
+            const ok = await requirePin(
+                "This group was automatically marked " +
+                "No Show."
+            );
+
+            if (!ok) {
+
+                this.value = "No Show";
+
+                return;
+            }
+
+            if (typeof currentGroupNoShowFlag !== "undefined") {
+
+                currentGroupNoShowFlag = false;
+            }
+
+            if (typeof recordAuditEntry === "function") {
+
+                recordAuditEntry("NO_SHOW_REVERSED", {
+
+                    group:     document.getElementById(
+                                   "groupName"
+                               )?.value || "",
+                    newStatus: this.value
+
+                });
+            }
+
+        /* ---------- Checked Out, always ---------- */
+
+        } else if (
+            wasCheckedOut &&
+            this.value !== "Checked Out"
+        ) {
+
+            const ok = await requirePin(
+                "This group is marked Checked Out."
+            );
+
+            if (!ok) {
+
+                this.value = "Checked Out";
+
+                return;
+            }
+
+            if (typeof recordAuditEntry === "function") {
+
+                recordAuditEntry("CHECKED_OUT_REVERSED", {
+
+                    group:     document.getElementById(
+                                   "groupName"
+                               )?.value || "",
+                    newStatus: this.value
+
+                });
+            }
+        }
+
+        previousValue = this.value;
+
+        if (typeof scheduleAutoSave === "function") {
+
+            scheduleAutoSave();
+        }
+
+    });
+
 }

@@ -102,7 +102,7 @@ Rules:
 - One phase at a time, ending in a test and a commit.
 - Syntax error → stop everything and fix it first.
 
-**Two hard-won rules:**
+**Three hard-won rules:**
 
 1. **If a phase touches more than about four places in one
    file, ask for the file and return a complete verified
@@ -110,6 +110,16 @@ Rules:
    a partially applied patch.
 2. **Announce new files at the TOP of the message**, not at
    the end. They get missed otherwise.
+3. **A confirmed file becomes the working copy in memory
+   immediately.** Once the developer confirms a file landed,
+   treat it as ground truth for the rest of the session — do
+   not re-derive from an older copy later. If a file has NOT
+   been touched recently, or there is ANY doubt, ask for a
+   fresh upload rather than assume it still matches memory.
+   This caught two real bugs in one session (a stale
+   `room-master.js` missing its version line; a PIN mismatch
+   that would have been guessed at three separate times before
+   a deterministic hash check settled it in one).
 
 Classify suggestions: 🔴 blocker · 🟡 before v1.0 · 🟢 v1.1
 Always explain WHY a change matters to hotel operations.
@@ -297,7 +307,7 @@ Call sites must be `async`. Destructive actions pass
 
 ```javascript
 DB = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     groups: [{
         id, groupName, arrivalDate, agent, preparedBy,
         status, notes, totalRooms, totalPax,
@@ -312,13 +322,14 @@ DB = {
                   specialRequest,
 
                   departureOverride,   // "" = follows group
-                  checkedOut           // per-room, not per-time
+                  checkedOut           // per-room, real UI now
                 }]
     }],
     settings: {
         hotelName, footerText, logo,
         roomNumbersOnly, restrictRoomsToMaster,
-        roomMasterPinHash
+        roomMasterPinHash,
+        preventCrossGroupOverlap   // default true
     },
     roomMaster: {
         categories: [ "Deluxe" ],
@@ -326,6 +337,7 @@ DB = {
         rules:      { "Deluxe": { defaultAdults, maxAdults,
                                   maxChildren, maxOccupancy } }
     },
+    auditLog: [],   // see "Audit Trail" below
     archive: []
 }
 ```
@@ -352,6 +364,34 @@ migrate.
 
 Full departure-date business rules are in §14, under
 **Departure Dates — Full Spec**.
+
+## Audit trail (LOCKED PATTERN — database.js)
+
+One function is the entire mechanism:
+`recordAuditEntry(action, details)`. Every feature that needs
+to record "what happened" — not just departure-date overrides —
+calls this rather than inventing its own log. This is what
+makes it one audit trail across the app instead of scattered
+notes.
+
+```javascript
+recordAuditEntry("MANUAL_CHECKOUT_ROOM", {
+    group: "Sharma Wedding", room: "101"
+});
+```
+
+Every entry gets `id`, `action`, `actor`, `createdAt`
+automatically; `details` is merged in. **`actor` is a
+placeholder** (`"Front Office"`) until real user accounts
+exist — the shape does not change when they do, the field just
+starts holding a real username. `getAuditLog()` reads it back.
+
+**Currently logging, for real:** cross-group overlap overrides,
+automatic No Show / Checked Out transitions, manual No Show
+reversal, manual per-room checkout (both directions), manual
+per-group checkout. **No browsing UI exists yet** — v1.1 scope.
+Do not build a second logging mechanism for a new feature;
+call `recordAuditEntry()`.
 
 ---
 
@@ -469,6 +509,38 @@ Both `getInvalidRooms()` and `updateRegisterCategories()` now
 count occurrences first, then flag **every** row involved.
 Never revert to a "have I seen this before" single-pass check
 for duplicate detection.
+
+## Manual checkout (LOCKED PATTERN — register.js)
+
+Two functions, one path, deliberately:
+
+```javascript
+checkOutRoom(roomElement, checkedOut)   // one room
+checkOutEntireGroup()                    // every room, confirmed once
+```
+
+**This is the exact point a future PMS integration writes back
+into.** When a real PMS eventually checks a guest out, it calls
+`checkOutRoom()` the same way this app's own checkbox does —
+one mechanism, not two that could drift apart. The checkbox's
+own `change` listener calls `checkOutRoom()` directly rather
+than duplicating similar logic next to it; an earlier draft got
+this wrong and would have double-logged every manual checkout.
+
+`checkOutRoom()` takes an explicit `checkedOut` boolean and logs
+**both directions** — checking and unchecking are each their
+own audit entry (`MANUAL_CHECKOUT_ROOM` /
+`MANUAL_CHECKOUT_ROOM_UNDONE`), not just the "did it" case.
+
+**A group's own status becomes Checked Out only once every real
+room in it is** (`updateGroupCheckoutStatus()`, checked after
+every toggle). Checking out one room of an eight-room group
+does not change the group's status — only that room's flag.
+
+`checkOutEntireGroup()` confirms once, then checks out every
+room and writes **one** audit entry naming the group and every
+room affected — not one entry per room for a single click,
+which would just be repeated noise at an identical timestamp.
 
 ## One-step restore
 
@@ -616,6 +688,9 @@ whether rollback restores data as well as code.
 | Duplicate-room flagging was asymmetric | the *first* occurrence of a repeated room was never flagged, only the second — looked like the system "favoured" whichever room was typed first | count occurrences first, flag every row involved — never a single-pass "have I seen this" check |
 | Guest Name `::after` CSS hint | collided visually with a later real `<button>` version — two "+ Guest" indicators rendered on top of each other | `::after` hint removed entirely; the button is a real element in its own header strip — see §8 Guest Name |
 | `initializeReportPrinting()` called twice in bootstrap | wasteful but not user-visible — `addEventListener` with a stable named function reference is a documented no-op on the second identical call | duplicate call removed anyway, for clarity |
+| Change PIN never verified the current PIN | anyone at the keyboard could silently overwrite the Manager PIN with their own, making it worthless as any kind of guard | `setRoomMasterPin()` now requires the current PIN first, only skipped on first-time setup |
+| Group identity was by `groupName`, not `id` | two different groups sharing a display name (same client, different tour code — a real, common case) would silently **overwrite each other on save** | `currentGroupId` tracked through the whole load→edit→save→draft cycle; every identity check (`saveCurrentGroup`, `getCrossGroupConflicts`) matches by `id`, never by name |
+| `room-master.js` missing its own `registerModuleVersion()` call | diagnostics correctly reported "MODULE NOT LOADED" for a file that HAD loaded — it just never registered itself | one line appended, matching every other module |
 
 ---
 
@@ -699,28 +774,53 @@ diagnostics · printable reports · version registry ·
 README + CHANGELOG
 
 ### Remaining for v1.0
+- Fix the checkout-status bug — diagnostic requested, result
+  pending. **Do not patch blind**, see `PROJECT_TRACKER.md` §5.
+- Build CSV export for the four printable reports (`report-print.js`)
+- Decide Reports status-filter UI — dropdown (built) vs.
+  separate quick-filter buttons
+- **DEP5** — real occupancy across the full stay, not just
+  arrival date; approved cross-group overrides shown as
+  "Approved," not a bare conflict, in the double-booking report
 - RC1 → **soak test on one real group arrival** → v1.0
 - Remove the dev `no-store` meta tag before tagging
 
-### Departure dates — IN PROGRESS, not deferred
+### Departure dates — COMPLETE through DEP4b
 
-Full spec is in §14. **DEP1 (data model) is done** — schema v3,
-migration, `getRoomDepartureDate()`. DEP2 (UI) is next; see
-`PROJECT_TRACKER.md` §5 for live phase status. This moved ahead
-of the rest of the v1.1 list below because occupancy accuracy
-and the overlap/no-show rules depend on it.
+Full spec is in §14. DEP1 (data model), DEP2 (Nights/Departure
+UI), DEP3 (cross-group overlap + PIN override + the **audit
+trail foundation**), DEP4a (automatic No Show / Checked Out
+transitions), DEP4b (manual per-room and per-group checkout) are
+all built. Only DEP5 (reports reflecting real occupancy) is
+left, and it's listed above under "Remaining for v1.0" — this
+phase turned out to matter enough to finish before shipping,
+not defer to v1.1.
 
 ### v1.1 — remaining items, ordered so each unlocks the next
-1. ~~Departure date / nights~~ — in progress, see above
-2. **Audit trail** — early, so later features are logged from
-   day one; match HKIM's record shape
-3. **Rate tab** — per occupancy per category, internal only:
+1. ~~Departure date / nights~~ — **done**, see above
+2. **Audit trail UI** — the *data layer* is done and genuinely
+   recording (`recordAuditEntry()`, see §7); no screen exists
+   yet to browse `DB.auditLog`. Match HKIM's record shape when
+   this happens.
+3. **Active / Departed / All filter for Saved Groups** —
+   researched: real PMS software uses *filtered views over one
+   dataset*, never physical relocation of records, specifically
+   to avoid a "did I lose my data" scare. Recommended default:
+   Active view, Checked Out / Cancelled hidden but one click
+   away via the filter.
+4. **Manager PIN reset/recovery** — currently, a hotel that
+   forgets its PIN has no path back except editing localStorage
+   directly, which nobody at a front desk should be doing.
+5. **Rate tab** — per occupancy per category, internal only:
    single, double, extra adult, child with bed, child without
    bed. A room computes itself from occupancy already entered.
-4. ADR / RevPAR / revenue reports
-5. Attachment storage (IndexedDB or SQLite)
-6. Drag-drop attachments per group — email, PDF, Word
-7. **Import and room allocation workflow** — three parts,
+   **No Show must generate a chargeable line** (typically one
+   night) — this is a real revenue/reporting requirement, not
+   just a status label; confirmed explicitly by the developer.
+6. ADR / RevPAR / revenue reports
+7. Attachment storage (IndexedDB or SQLite)
+8. Drag-drop attachments per group — email, PDF, Word
+9. **Import and room allocation workflow** — three parts,
    designed together as one flow:
 
    a. **Excel import with column mapping.** Read the file, show
@@ -732,7 +832,10 @@ and the overlap/no-show rules depend on it.
       silently. Remember the mapping per agent, since most reuse
       their own template. Requires **SheetJS** as a dependency —
       the first exception to the no-library rule, needs an
-      explicit decision when this phase starts.
+      explicit decision when this phase starts. Note: this is
+      *import* (reading uploaded files) and is genuinely harder
+      than the CSV *export* already listed above, which needs no
+      new dependency at all.
 
    b. **Names load with rooms deliberately blank.** Many agent
       lists carry guest names with no room numbers at all. The

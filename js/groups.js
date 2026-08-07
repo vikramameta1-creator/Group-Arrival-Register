@@ -45,7 +45,7 @@ function getCurrentGroupData() {
 
     return {
 
-        id: generateId(),
+        id: currentGroupId || generateId(),
 
         status:
             document.getElementById(
@@ -117,6 +117,161 @@ function getCurrentGroupData() {
 
 let currentGroupNoShowFlag = false;
 
+/* The real, stable id of whichever saved group is
+   currently open for editing - null means "this is a
+   brand new group, never saved before." Identity for
+   save/update and for cross-group conflict checking is
+   always by id, never by groupName - two different
+   groups (different tour codes, same client name) can
+   legitimately share a display name, and matching on
+   name would let one silently overwrite the other. */
+
+let currentGroupId = null;
+
+
+function resetCurrentGroupIdentity() {
+
+    currentGroupId = null;
+
+    currentGroupNoShowFlag = false;
+}
+
+
+/* =====================================================
+   AUTOMATIC STATUS TRANSITIONS
+
+   Runs once at startup. Two rules, both date-driven:
+
+       Confirmed  + arrival date passed, never checked in
+                  -> No Show (noShowFlag marks it as
+                     AUTO-set, so a manual reversal in the
+                     dropdown can require the Manager PIN -
+                     see initializeDepartureDateSync() in
+                     app.js for the reversal gate)
+
+       Checked In + every room's departure date has passed
+                  -> Checked Out
+
+   Pending never changes here - only manual checkout or
+   delete moves it. Arrived, Checked Out and Cancelled are
+   settled states, untouched.
+
+   Every transition is written to the audit trail. This
+   only runs against SAVED groups via GroupRepository -
+   whatever is currently open in the live register is
+   untouched until it is next opened or saved.
+===================================================== */
+
+function applyAutomaticStatusTransitions() {
+
+    if (
+        typeof GroupRepository === "undefined" ||
+        typeof recordAuditEntry !== "function" ||
+        typeof getTodayString !== "function"
+    ) {
+
+        return;
+    }
+
+    const today = getTodayString();
+
+    let changed = 0;
+
+    GroupRepository.getAll().forEach((group, index) => {
+
+        const status = (group.status || "").trim();
+
+        /* ---------- Confirmed -> No Show ---------- */
+
+        if (
+            status === "Confirmed" &&
+            group.arrivalDate &&
+            today > group.arrivalDate &&
+            !group.noShowFlag
+        ) {
+
+            group.status = "No Show";
+
+            group.noShowFlag = true;
+
+            group.modifiedOn = nowISO();
+
+            GroupRepository.update(index, group);
+
+            recordAuditEntry("AUTO_NO_SHOW", {
+
+                group:       group.groupName,
+                arrivalDate: group.arrivalDate
+
+            });
+
+            changed++;
+
+            return;
+        }
+
+        /* ---------- Checked In -> Checked Out ---------- */
+
+        if (
+            status === "Checked In" &&
+            typeof getRoomDepartureDate === "function"
+        ) {
+
+            const rooms = group.rooms || [];
+
+            const realRooms = rooms.filter(room =>
+                typeof isEmptyRegisterRow === "function"
+                    ? !isEmptyRegisterRow(room)
+                    : !!(room.roomNo || room.guestName)
+            );
+
+            if (realRooms.length === 0) return;
+
+            const allDeparted = realRooms.every(room => {
+
+                const departure =
+                    getRoomDepartureDate(group, room);
+
+                return departure && today > departure;
+
+            });
+
+            if (!allDeparted) return;
+
+            group.status = "Checked Out";
+
+            rooms.forEach(room => {
+
+                room.checkedOut = true;
+
+            });
+
+            group.modifiedOn = nowISO();
+
+            GroupRepository.update(index, group);
+
+            recordAuditEntry("AUTO_CHECKED_OUT", {
+
+                group:         group.groupName,
+                departureDate: group.departureDate
+
+            });
+
+            changed++;
+
+        }
+
+    });
+
+    if (changed > 0) {
+
+        console.log(
+            "Applied " + changed +
+            " automatic status transition(s)."
+        );
+    }
+}
+
 
 function loadGroupToScreen(group) {
 
@@ -147,6 +302,8 @@ function loadGroupToScreen(group) {
 
     });
 
+    currentGroupId = group.id || null;
+
     currentGroupNoShowFlag = !!group.noShowFlag;
 
     loadRegisterRows(group.rooms || []);
@@ -170,6 +327,114 @@ function loadGroupToScreen(group) {
 /* =====================================================
    SAVE CURRENT GROUP
 ===================================================== */
+
+/* =====================================================
+   RESOLVE CROSS-GROUP CONFLICTS
+
+   Not a hard block. Lists every conflict plainly, then
+   asks for the Manager PIN to proceed - reusing the same
+   PIN already protecting Room Master, rather than a
+   second password to remember. If the PIN is correct,
+   every conflict is written to the audit trail before the
+   save continues, so an override always leaves a record
+   naming who was overridden, which room, and which dates -
+   never a silent allow.
+
+   If no Manager PIN has been set up yet, there is nothing
+   to gate the override with. Rather than block the save
+   entirely for a feature nobody has configured, this falls
+   back to a plain confirmation - still recorded in the
+   audit trail, just without a PIN behind it.
+===================================================== */
+
+async function resolveCrossGroupConflicts(group, conflicts) {
+
+    let message =
+        "The following rooms are already booked by " +
+        "another group on overlapping dates:\n\n";
+
+    conflicts.slice(0, 8).forEach(c => {
+
+        message +=
+            "Room " + c.roomNo + " — " +
+            c.otherGroupName + " (" +
+            c.otherArrival + " to " + c.otherDeparture +
+            ")\n";
+
+    });
+
+    if (conflicts.length > 8) {
+
+        message +=
+            "\nand " + (conflicts.length - 8) + " more\n";
+    }
+
+    const pinIsSet =
+        typeof hasRoomMasterPin === "function" &&
+        hasRoomMasterPin();
+
+    if (!pinIsSet) {
+
+        const ok = await showConfirm(
+            message +
+            "\nNo Manager PIN is set, so this cannot be " +
+            "verified. Save anyway?",
+            "Room Conflict — No PIN Configured",
+            { danger: true, okLabel: "Save Anyway" }
+        );
+
+        if (!ok) return false;
+
+        recordConflictOverrides(group, conflicts, false);
+
+        return true;
+    }
+
+    const entered = await showPrompt(
+        message + "\nEnter the Manager PIN to save anyway.",
+        "",
+        "Room Conflict — Manager PIN Required",
+        { inputType: "password", maxLength: 4, placeholder: "0000" }
+    );
+
+    if (entered === null) return false;
+
+    if (
+        typeof hashPin !== "function" ||
+        hashPin(entered.trim()) !== DB.settings.roomMasterPinHash
+    ) {
+
+        await showAlert("Incorrect PIN. Save cancelled.");
+
+        return false;
+    }
+
+    recordConflictOverrides(group, conflicts, true);
+
+    return true;
+}
+
+
+function recordConflictOverrides(group, conflicts, pinVerified) {
+
+    if (typeof recordAuditEntry !== "function") return;
+
+    conflicts.forEach(c => {
+
+        recordAuditEntry("CROSS_GROUP_OVERRIDE_APPROVED", {
+
+            room:            c.roomNo,
+            group:           group.groupName,
+            groupDates:      c.myArrival + " to " + c.myDeparture,
+            conflictsWith:   c.otherGroupName,
+            conflictDates:   c.otherArrival + " to " + c.otherDeparture,
+            pinVerified:     pinVerified
+
+        });
+
+    });
+}
+
 
 async function saveCurrentGroup() {
 
@@ -202,22 +467,37 @@ async function saveCurrentGroup() {
         return;
     }
 
+    /* ---------- Cross-Group Overlap ---------- */
+
+    if (typeof getCrossGroupConflicts === "function") {
+
+        const conflicts = getCrossGroupConflicts(group);
+
+        if (conflicts.length > 0) {
+
+            const proceed =
+                await resolveCrossGroupConflicts(
+                    group,
+                    conflicts
+                );
+
+            if (!proceed) return;
+        }
+    }
+
    const now = nowISO();
 
     const existing =
         GroupRepository
         .getAll()
         .findIndex(
-            g => g.groupName === group.groupName
+            g => g.id === group.id
         );
 
     if (existing >= 0) {
 
         const previous =
             GroupRepository.get(existing);
-
-        group.id =
-            previous.id || group.id;
 
         group.createdOn =
             previous.createdOn || now;
@@ -234,6 +514,8 @@ async function saveCurrentGroup() {
 
         GroupRepository.add(group);
     }
+
+    currentGroupId = group.id;
 
     refreshApplication();
 
@@ -709,6 +991,8 @@ function autoSaveCurrentWork() {
     const draft = {
 
         schema: 2,
+
+        id: currentGroupId,
 
         status:
             document.getElementById(

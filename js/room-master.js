@@ -1392,6 +1392,44 @@ function lockRoomMaster() {
 
 async function setRoomMasterPin() {
 
+    /* Changing an existing PIN requires the current one
+       first - without this check, anyone at the keyboard
+       could silently replace the PIN with their own,
+       making it worthless as any kind of guard at all. */
+
+    if (
+        typeof hasRoomMasterPin === "function" &&
+        hasRoomMasterPin()
+    ) {
+
+        const current = await showPrompt(
+            "Enter the current PIN to change it.",
+            "",
+            "Confirm Current PIN",
+            {
+                inputType: "password",
+                maxLength: 4,
+                placeholder: "0000"
+            }
+        );
+
+        if (current === null) return;
+
+        if (
+            typeof hashPin !== "function" ||
+            hashPin(current.trim()) !==
+                DB.settings.roomMasterPinHash
+        ) {
+
+            await showAlert(
+                "Incorrect PIN. The PIN was not changed.",
+                "Incorrect PIN"
+            );
+
+            return;
+        }
+    }
+
     const first = await showPrompt(
         "Enter a new 4-digit Manager PIN.",
         "",

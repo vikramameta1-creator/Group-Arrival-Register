@@ -32,7 +32,7 @@ const STORAGE_KEY = "hotel_group_operations_v5";
 /* Bump when the stored shape changes, then add a
    migration step in migrateDatabase(). */
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 const DEFAULT_DB = {
 
@@ -58,7 +58,18 @@ const DEFAULT_DB = {
         categories: [],
 
         rooms: {}
-    }
+    },
+
+    /* One flat, append-only log for the whole app. Every
+       feature that needs to record "what happened" writes
+       through recordAuditEntry() below, rather than
+       inventing its own storage. actor is a placeholder
+       string until real user accounts exist - the shape
+       does not change when that arrives, the field just
+       starts holding a real username instead of
+       "Front Office". */
+
+    auditLog: []
 };
 
 let DB = loadDatabase();
@@ -204,6 +215,62 @@ function getRoomDepartureDate(group, room) {
 
 
 /* =====================================================
+   AUDIT TRAIL
+
+   One entry point for the whole application. Every
+   feature that needs to record an action - not just this
+   phase's override approvals - calls recordAuditEntry()
+   rather than writing its own note somewhere. This is
+   what makes it a single audit trail across the app
+   instead of a pile of unrelated logs.
+
+   actor is a placeholder until real user accounts exist.
+   Nothing about this shape needs to change when they do.
+===================================================== */
+
+function generateAuditId() {
+
+    return (
+        "AUD-" +
+        Date.now() +
+        "-" +
+        Math.floor(Math.random() * 1000)
+    );
+}
+
+
+function recordAuditEntry(action, details) {
+
+    if (!Array.isArray(DB.auditLog)) {
+
+        DB.auditLog = [];
+    }
+
+    const entry = Object.assign(
+        {
+            id:        generateAuditId(),
+            action:    action,
+            actor:     "Front Office",
+            createdAt: nowISO()
+        },
+        details || {}
+    );
+
+    DB.auditLog.push(entry);
+
+    saveDatabase();
+
+    return entry;
+}
+
+
+function getAuditLog() {
+
+    return Array.isArray(DB.auditLog) ? DB.auditLog : [];
+}
+
+
+/* =====================================================
    SCHEMA MIGRATION
 ===================================================== */
 
@@ -281,6 +348,18 @@ function migrateDatabase(db) {
             (db.groups || []).length +
             " group(s) to include departure dates."
         );
+    }
+
+    /* ---------- 3 -> 4 : Audit log ---------- */
+
+    if (from < 4) {
+
+        if (!Array.isArray(db.auditLog)) {
+
+            db.auditLog = [];
+        }
+
+        console.log("Migrated database to include the audit log.");
     }
 
     db.schemaVersion = SCHEMA_VERSION;

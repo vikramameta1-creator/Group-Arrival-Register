@@ -160,6 +160,18 @@ function createRowHTML(
                 class="checkoutOverrideDate"
                 style="display:none;">
 
+            <br>
+
+            <label class="roomCheckedOutToggle">
+
+                <input
+                    type="checkbox"
+                    class="roomCheckedOut">
+
+                ✓ Checked out
+
+            </label>
+
         </td>
 
     </tr>
@@ -258,7 +270,8 @@ function getRegisterRows() {
                     : "",
 
             checkedOut:
-                row.dataset.checkedOut === "1"
+                row.querySelector(".roomCheckedOut")
+                ?.checked || false
 
         });
 
@@ -336,12 +349,293 @@ function loadRegisterRows(rows = []) {
             overrideDate.value = row.departureOverride || "";
         }
 
-        currentRow.dataset.checkedOut =
-            row.checkedOut ? "1" : "0";
+        const checkedOutBox =
+            currentRow.querySelector(".roomCheckedOut");
+
+        if (checkedOutBox) {
+
+            checkedOutBox.checked = !!row.checkedOut;
+
+            currentRow.classList.toggle(
+                "row-checked-out",
+                !!row.checkedOut
+            );
+        }
 
     });
 
+    sortCheckedOutRoomsToBottom();
+
     refreshRegisterViews();
+}
+
+
+/* =====================================================
+   MANUAL CHECKOUT
+
+   Two functions, deliberately clean and standalone - not
+   logic buried inside a click handler. This is the exact
+   point a future PMS integration writes back into: when
+   a real PMS checks a guest out, it calls checkOutRoom()
+   the same way this app's own button does, rather than
+   the software needing two separate checkout mechanisms.
+
+   A group's own status becomes Checked Out only once
+   EVERY room in it is - checking out one room of an
+   eight-room group does not change the group's status,
+   only that room's own flag.
+===================================================== */
+
+function checkOutRoom(roomElement, checkedOut) {
+
+    if (!roomElement) return;
+
+    const checkbox =
+        roomElement.querySelector(".roomCheckedOut");
+
+    if (!checkbox) return;
+
+    const isCheckedOut =
+        checkedOut === undefined ? true : !!checkedOut;
+
+    checkbox.checked = isCheckedOut;
+
+    roomElement.classList.toggle(
+        "row-checked-out",
+        isCheckedOut
+    );
+
+    const roomNo =
+        roomElement.cells[REGISTER_COLUMNS.ROOM]
+        ?.innerText.trim() || "";
+
+    if (typeof recordAuditEntry === "function") {
+
+        recordAuditEntry(
+            isCheckedOut
+                ? "MANUAL_CHECKOUT_ROOM"
+                : "MANUAL_CHECKOUT_ROOM_UNDONE",
+            {
+
+                group: document.getElementById("groupName")
+                       ?.value || "",
+                room:  roomNo
+
+            }
+        );
+    }
+
+    updateGroupCheckoutStatus();
+
+    sortCheckedOutRoomsToBottom();
+
+    refreshRegisterViews();
+
+    if (typeof scheduleAutoSave === "function") {
+
+        scheduleAutoSave();
+    }
+
+    if (typeof showSaveFlash === "function") {
+
+        showSaveFlash(
+            isCheckedOut
+                ? "Room " + roomNo + " checked out"
+                : "Room " + roomNo + " checkout undone"
+        );
+    }
+}
+
+
+async function checkOutEntireGroup() {
+
+    const body = getRegisterBody();
+
+    if (!body || body.rows.length === 0) return;
+
+    const rows =
+        getRegisterRows().filter(row =>
+            !isEmptyRegisterRow(row)
+        );
+
+    const alreadyDone =
+        rows.length > 0 &&
+        rows.every(row => row.checkedOut);
+
+    if (alreadyDone) {
+
+        await showAlert(
+            "Every room in this group is already " +
+            "checked out.",
+            "Nothing To Do"
+        );
+
+        return;
+    }
+
+    const ok = await showConfirm(
+        "Check out every room in this group?",
+        "Check Out Group",
+        { okLabel: "Check Out" }
+    );
+
+    if (!ok) return;
+
+    [...body.rows].forEach(row => {
+
+        const checkbox =
+            row.querySelector(".roomCheckedOut");
+
+        if (checkbox) checkbox.checked = true;
+
+        row.classList.add("row-checked-out");
+
+    });
+
+    if (typeof recordAuditEntry === "function") {
+
+        recordAuditEntry("MANUAL_CHECKOUT_GROUP", {
+
+            group: document.getElementById("groupName")
+                   ?.value || "",
+            rooms: rows.map(r => r.roomNo).join(", ")
+
+        });
+    }
+
+    updateGroupCheckoutStatus();
+
+    sortCheckedOutRoomsToBottom();
+
+    refreshRegisterViews();
+
+    if (typeof scheduleAutoSave === "function") {
+
+        scheduleAutoSave();
+    }
+
+    if (typeof showSaveFlash === "function") {
+
+        showSaveFlash("Group checked out");
+    }
+}
+
+
+function updateGroupCheckoutStatus() {
+
+    const rows =
+        getRegisterRows().filter(row =>
+            !isEmptyRegisterRow(row)
+        );
+
+    if (rows.length === 0) return;
+
+    const allCheckedOut =
+        rows.every(row => row.checkedOut);
+
+    const statusInput =
+        document.getElementById("groupStatus");
+
+    if (!statusInput) return;
+
+    if (
+        allCheckedOut &&
+        statusInput.value !== "Checked Out"
+    ) {
+
+        statusInput.value = "Checked Out";
+
+        statusInput.dispatchEvent(new Event("change"));
+    }
+}
+
+
+/* =====================================================
+   SORT CHECKED-OUT ROOMS TO THE BOTTOM
+
+   Active rooms stay on top, checked-out rooms sink
+   below them - room number order preserved within each
+   group, so a receptionist scanning a long register
+   sees what still needs attention first, without
+   completed rows mixed in.
+===================================================== */
+
+function sortCheckedOutRoomsToBottom() {
+
+    const body = getRegisterBody();
+
+    if (!body) return;
+
+    const rows = [...body.rows];
+
+    rows.sort((a, b) => {
+
+        const aOut =
+            a.classList.contains("row-checked-out") ? 1 : 0;
+
+        const bOut =
+            b.classList.contains("row-checked-out") ? 1 : 0;
+
+        if (aOut !== bOut) return aOut - bOut;
+
+        const roomA =
+            parseInt(
+                a.cells[REGISTER_COLUMNS.ROOM]
+                ?.innerText.trim()
+            ) || 0;
+
+        const roomB =
+            parseInt(
+                b.cells[REGISTER_COLUMNS.ROOM]
+                ?.innerText.trim()
+            ) || 0;
+
+        return roomA - roomB;
+
+    });
+
+    rows.forEach(row => body.appendChild(row));
+
+    renumberRows();
+}
+
+
+function initializeManualCheckout() {
+
+    const body = getRegisterBody();
+
+    if (body) {
+
+        /* The checkbox's own DOM change already reflects
+           the new state, so checkOutRoom() is called to
+           re-affirm it and do the logging/refresh - this
+           is the SAME function a future PMS integration
+           would call directly, so a manual click and a
+           programmatic call always behave identically. */
+
+        body.addEventListener("change", function (event) {
+
+            if (
+                !event.target.classList ||
+                !event.target.classList.contains(
+                    "roomCheckedOut"
+                )
+            ) {
+                return;
+            }
+
+            const row = event.target.closest("tr");
+
+            checkOutRoom(row, event.target.checked);
+
+        });
+
+    }
+
+    document
+        .getElementById("btnCheckOutGroup")
+        ?.addEventListener("click", checkOutEntireGroup);
+
 }
 
 
@@ -787,6 +1081,11 @@ async function clearRegister() {
     clearRegisterFields();
 
     toggleDraftBanner(false);
+
+    if (typeof resetCurrentGroupIdentity === "function") {
+
+        resetCurrentGroupIdentity();
+    }
 }
 /* =====================================================
    EMPTY ROW RULE
@@ -933,6 +1232,128 @@ function isRoomMasterEnforced() {
         typeof roomMasterHasRooms === "function" &&
         roomMasterHasRooms()
     );
+}
+
+
+/* =====================================================
+   CROSS-GROUP OVERLAP DETECTION
+
+   Same room, SAME group is the existing DUPLICATE check
+   above - hard block, no override, ever. This is
+   different: same room, DIFFERENT groups, on overlapping
+   dates. Off by default is never the setting - checking
+   is on by default, matching restrictRoomsToMaster's
+   polarity. Turned off entirely via Settings, or resolved
+   per-conflict with the Manager PIN at save time (see
+   groups.js).
+
+   Overlap test uses the standard half-open range rule:
+   two stays [arrival, departure) overlap only if each
+   arrival falls before the other's departure. A same-day
+   checkout followed by a same-day check-in is NOT a
+   conflict under this rule, matching how a real front
+   desk actually turns a room around.
+===================================================== */
+
+function getCrossGroupConflicts(currentGroup) {
+
+    if (!currentGroup) return [];
+
+    if (
+        typeof DB === "undefined" ||
+        !DB.settings ||
+        DB.settings.preventCrossGroupOverlap === false
+    ) {
+
+        return [];
+    }
+
+    if (
+        typeof GroupRepository === "undefined" ||
+        typeof getRoomDepartureDate !== "function"
+    ) {
+
+        return [];
+    }
+
+    const conflicts = [];
+
+    (currentGroup.rooms || []).forEach(row => {
+
+        const roomNo = (row.roomNo || "").trim();
+
+        if (!roomNo) return;
+
+        const myArrival = currentGroup.arrivalDate || "";
+
+        const myDeparture =
+            getRoomDepartureDate(currentGroup, row);
+
+        if (!myArrival || !myDeparture) return;
+
+        GroupRepository.getAll().forEach(otherGroup => {
+
+            /* Identity is by id, never by display name.
+               Two genuinely different groups (different
+               tour codes, different bookings) can share a
+               name - matching on name here would let one
+               silently skip being checked against the
+               other. */
+
+            if (
+                currentGroup.id &&
+                otherGroup.id === currentGroup.id
+            ) {
+
+                return;
+            }
+
+            if ((otherGroup.status || "") === "Cancelled") {
+
+                return;
+            }
+
+            (otherGroup.rooms || []).forEach(otherRoom => {
+
+                if (
+                    (otherRoom.roomNo || "").trim() !== roomNo
+                ) {
+
+                    return;
+                }
+
+                const otherArrival =
+                    otherGroup.arrivalDate || "";
+
+                const otherDeparture =
+                    getRoomDepartureDate(otherGroup, otherRoom);
+
+                if (!otherArrival || !otherDeparture) return;
+
+                if (
+                    myArrival < otherDeparture &&
+                    otherArrival < myDeparture
+                ) {
+
+                    conflicts.push({
+
+                        roomNo:         roomNo,
+                        myArrival:      myArrival,
+                        myDeparture:    myDeparture,
+                        otherGroupName: otherGroup.groupName,
+                        otherArrival:   otherArrival,
+                        otherDeparture: otherDeparture
+
+                    });
+                }
+
+            });
+
+        });
+
+    });
+
+    return conflicts;
 }
 
 
@@ -1882,6 +2303,8 @@ function initializeRegisterEvents() {
         ?.addEventListener("click", processBulkImport);
 
     initializeCheckoutOverrides();
+
+    initializeManualCheckout();
 
     /* Delegated - rows are created and destroyed
        constantly, so the button is caught by a single

@@ -628,9 +628,102 @@ ${buildSignOffBlock()}
 
 
 /* =====================================================
+   BLANK REGISTER MEAL AUTO-FILL
+
+   Optional. Asks how many rows should be pre-printed
+   with each meal plan, in blocks, top to bottom, in
+   the same EP / CP / MAP / AP order used everywhere
+   else in the app. Any plan left at 0 is skipped, and
+   any rows left over after all four are asked stay
+   blank - exactly today's behaviour if the receptionist
+   declines the offer entirely.
+
+   Cancelling any individual meal-count prompt stops
+   asking further plans but does NOT cancel the print -
+   whatever was already assigned still applies, and the
+   remaining rows simply stay blank.
+===================================================== */
+
+async function promptMealBreakdown(totalRows) {
+
+    const counts = { EP: 0, CP: 0, MAP: 0, AP: 0 };
+
+    const wantsAutoFill = await showConfirm(
+        "Pre-fill the Meal column for some rows? " +
+        "Leave any plan at 0 to skip it.",
+        "Auto-Fill Meal Plans?",
+        {
+            okLabel:     "Set Up Meals",
+            cancelLabel: "Leave Blank"
+        }
+    );
+
+    if (!wantsAutoFill) return counts;
+
+    const result = await showForm(
+        [
+            { id: "EP",  label: "EP rows",  value: 0, min: 0, max: totalRows },
+            { id: "CP",  label: "CP rows",  value: 0, min: 0, max: totalRows },
+            { id: "MAP", label: "MAP rows", value: 0, min: 0, max: totalRows },
+            { id: "AP",  label: "AP rows",  value: 0, min: 0, max: totalRows }
+        ],
+        "Meal Plan Rows (out of " + totalRows + " total)"
+    );
+
+    if (result === null) return counts;
+
+    /* Same clamp order as the old sequential version - EP first
+       claim on remaining rows, then CP, then MAP, then AP, so an
+       over-allocation is trimmed predictably rather than silently
+       overflowing the row count. */
+
+    let remaining = totalRows;
+
+    ["EP", "CP", "MAP", "AP"].forEach(function (plan) {
+
+        let count = Math.floor(Number(result[plan])) || 0;
+
+        if (count < 0) count = 0;
+
+        if (count > remaining) count = remaining;
+
+        counts[plan] = count;
+
+        remaining -= count;
+    });
+
+    return counts;
+}
+
+function buildMealRowSequence(counts, totalRows) {
+
+    const sequence = [];
+
+    ["EP", "CP", "MAP", "AP"].forEach(plan => {
+
+        for (let i = 0; i < counts[plan]; i++) {
+
+            sequence.push(plan);
+        }
+
+    });
+
+    while (sequence.length < totalRows) {
+
+        sequence.push("");
+    }
+
+    return sequence;
+}
+
+
+/* =====================================================
    PRINT BLANK REGISTER
 
-   Same form, empty, for handwritten entry.
+   Same form, empty, for handwritten entry. Meal column
+   can be pre-filled in blocks via promptMealBreakdown()
+   above - everything else stays blank for the
+   receptionist to write in by hand.
 ===================================================== */
 
 async function printBlankRegister() {
@@ -656,9 +749,17 @@ async function printBlankRegister() {
         return;
     }
 
+    const mealCounts =
+        await promptMealBreakdown(rows);
+
+    const mealSequence =
+        buildMealRowSequence(mealCounts, rows);
+
     let tableRows = "";
 
     for (let i = 1; i <= rows; i++) {
+
+        const meal = mealSequence[i - 1] || "";
 
         tableRows += `
         <tr>
@@ -666,7 +767,7 @@ async function printBlankRegister() {
             <td></td>
             <td></td>
             <td></td>
-            <td></td>
+            <td>${escapeHTML(meal)}</td>
             <td></td>
             <td></td>
         </tr>

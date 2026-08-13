@@ -300,10 +300,71 @@ function getInventorySnapshot() {
 
 
 /* =====================================================
-   OCCUPANCY BY ARRIVAL DATE
+   NIGHTS IN A STAY (DEP5)
 
-   Also detects the same room booked on the same date
-   by two different groups.
+   Arrival date through the night before departure -
+   standard hotel convention, checkout morning is not
+   an occupied night. Groups saved before departureDate
+   existed fall back to a single-night stay on their
+   arrival date, same as previous behaviour. Capped at
+   90 nights per group as a safety net against a typo'd
+   far-future date turning into a runaway loop - this is
+   defensive, not a real stay-length limit.
+===================================================== */
+
+function buildNightsInRange(arrivalDate, departureDate) {
+
+    const nights = [];
+
+    if (!arrivalDate) return nights;
+
+    const start = new Date(arrivalDate + "T00:00:00");
+
+    if (isNaN(start.getTime())) return nights;
+
+    const end =
+        departureDate
+            ? new Date(departureDate + "T00:00:00")
+            : null;
+
+    if (!end || isNaN(end.getTime()) || end <= start) {
+
+        nights.push(arrivalDate);
+
+        return nights;
+    }
+
+    const MAX_NIGHTS = 90;
+
+    const cursor = new Date(start);
+
+    let count = 0;
+
+    while (cursor < end && count < MAX_NIGHTS) {
+
+        nights.push(cursor.toISOString().slice(0, 10));
+
+        cursor.setDate(cursor.getDate() + 1);
+
+        count++;
+    }
+
+    return nights;
+}
+
+
+/* =====================================================
+   OCCUPANCY BY DATE (DEP5 - full stay, not just arrival)
+
+   Every room in a group counts as occupied on every
+   night of that group's actual stay, not only its
+   arrival date. Conflict detection follows the same
+   expansion - two groups sharing a room now gets caught
+   whenever their stays overlap on any night, even if
+   their arrival dates differ. Output shape (date / groups
+   / rooms per entry) is unchanged, so nothing downstream
+   - renderOccupancySummary(), buildReportsCSV() - needs
+   to change.
 ===================================================== */
 
 function buildDateOccupancy(groups) {
@@ -314,60 +375,78 @@ function buildDateOccupancy(groups) {
 
     groups.forEach(group => {
 
-        const date = group.arrivalDate || "";
+        const nights = buildNightsInRange(
+            group.arrivalDate || "",
+            group.departureDate || ""
+        );
 
-        if (!date) return;
-
-        if (!byDate[date]) {
-
-            byDate[date] = {
-                date:    date,
-                groups:  0,
-                claimed: {},
-                rooms:   0
-            };
-        }
-
-        const entry = byDate[date];
-
-        entry.groups++;
+        if (nights.length === 0) return;
 
         const groupName =
             group.groupName || "Unnamed Group";
 
-        (group.rooms || []).forEach(room => {
+        const realRooms =
+            (group.rooms || [])
+            .filter(room => !isEmptyRegisterRow(room));
 
-            if (isEmptyRegisterRow(room)) return;
+        if (realRooms.length === 0) return;
 
-            const roomNo =
-                String(room.roomNo || "").trim();
+        nights.forEach(date => {
 
-            if (!roomNo) return;
+            if (!byDate[date]) {
 
-            const owner = entry.claimed[roomNo];
-
-            if (owner === undefined) {
-
-                entry.claimed[roomNo] = groupName;
-
-                entry.rooms++;
-
-                return;
+                byDate[date] = {
+                    date:       date,
+                    groups:     0,
+                    groupsSeen: {},
+                    claimed:    {},
+                    rooms:      0
+                };
             }
 
-            /* Same room twice inside one group is a
-               shared room and is legitimate.
-               Across two groups it is a conflict. */
+            const entry = byDate[date];
 
-            if (owner !== groupName) {
+            if (!entry.groupsSeen[groupName]) {
 
-                conflicts.push({
-                    date:  date,
-                    room:  roomNo,
-                    first: owner,
-                    other: groupName
-                });
+                entry.groupsSeen[groupName] = true;
+
+                entry.groups++;
             }
+
+            realRooms.forEach(room => {
+
+                const roomNo =
+                    String(room.roomNo || "").trim();
+
+                if (!roomNo) return;
+
+                const owner = entry.claimed[roomNo];
+
+                if (owner === undefined) {
+
+                    entry.claimed[roomNo] = groupName;
+
+                    entry.rooms++;
+
+                    return;
+                }
+
+                /* Same room twice inside one group is a
+                   shared room and is legitimate.
+                   Across two groups, on any overlapping
+                   night, it is a conflict. */
+
+                if (owner !== groupName) {
+
+                    conflicts.push({
+                        date:  date,
+                        room:  roomNo,
+                        first: owner,
+                        other: groupName
+                    });
+                }
+
+            });
 
         });
 
@@ -376,7 +455,17 @@ function buildDateOccupancy(groups) {
     const dates =
         Object.keys(byDate)
         .sort()
-        .map(key => byDate[key]);
+        .map(key => {
+
+            const entry = byDate[key];
+
+            return {
+                date:   entry.date,
+                groups: entry.groups,
+                rooms:  entry.rooms
+            };
+
+        });
 
     return {
         dates:     dates,
@@ -417,7 +506,10 @@ function buildReportStats() {
         inventory:    getInventorySnapshot(),
         dateRows:     [],
         conflicts:    [],
-        uniqueRooms:  0
+        uniqueRooms:  0,
+        departureDate: "",
+        stayNights:   [],
+        stayConflicts: []
 
     };
 
@@ -432,9 +524,10 @@ function buildReportStats() {
         const value = id =>
             document.getElementById(id)?.value || "";
 
-        stats.groupName   = value("groupName");
-        stats.arrivalDate = value("arrivalDate");
-        stats.status      = value("groupStatus");
+        stats.groupName    = value("groupName");
+        stats.arrivalDate  = value("arrivalDate");
+        stats.departureDate = value("departureDate");
+        stats.status       = value("groupStatus");
 
         if (rows.length > 0) {
 
@@ -457,6 +550,70 @@ function buildReportStats() {
         });
 
         stats.uniqueRooms = Object.keys(seen).length;
+
+        /* ---------- Hotel-wide occupancy across this stay ----------
+
+           Reuses buildDateOccupancy() (DEP5) unchanged. The live,
+           possibly-unsaved on-screen group stands in for itself -
+           excluded from "every other saved group" by id, so an
+           already-saved group being actively edited doesn't get
+           counted twice. A genuine shared-room conflict between the
+           live group and another saved group still surfaces via the
+           same conflicts array DEP5 already produces. */
+
+        if (stats.arrivalDate && rows.length > 0) {
+
+            const selfId =
+                typeof currentGroupId !== "undefined"
+                    ? currentGroupId
+                    : null;
+
+            const otherGroups =
+                (
+                    typeof GroupRepository !== "undefined"
+                        ? GroupRepository.getAll()
+                        : []
+                )
+                .filter(group => group.id !== selfId);
+
+            const liveGroup = {
+                id:            selfId,
+                groupName:     stats.groupName ||
+                               "Current Group (unsaved)",
+                arrivalDate:   stats.arrivalDate,
+                departureDate: stats.departureDate,
+                rooms:         rows
+            };
+
+            const combined =
+                buildDateOccupancy(
+                    [liveGroup].concat(otherGroups)
+                );
+
+            const myNights =
+                buildNightsInRange(
+                    stats.arrivalDate,
+                    stats.departureDate
+                );
+
+            const nightMap = {};
+
+            combined.dates.forEach(entry => {
+
+                nightMap[entry.date] = entry.rooms;
+            });
+
+            stats.stayNights =
+                myNights.map(date => ({
+                    date:  date,
+                    rooms: nightMap[date] || stats.uniqueRooms
+                }));
+
+            stats.stayConflicts =
+                combined.conflicts.filter(conflict =>
+                    myNights.indexOf(conflict.date) !== -1
+                );
+        }
 
     } else {
 
@@ -870,19 +1027,65 @@ function renderOccupancySummary(stats) {
         stats.inventory.available
     ) {
 
-        html +=
-            `<h4 class="report-subhead">
-                Hotel Occupancy${
-                    stats.arrivalDate
-                        ? " — " + stats.arrivalDate
-                        : ""
-                }
-            </h4>`;
+        if (stats.stayNights.length > 0) {
 
-        html += buildOccupancyBar(
-            stats.uniqueRooms,
-            stats.inventory.total
-        );
+            html +=
+                `<h4 class="report-subhead">
+                    Hotel Occupancy Across This Stay
+                </h4>`;
+
+            html +=
+                `<table class="data-table report-table">
+                    <tbody>`;
+
+            stats.stayNights.forEach(night => {
+
+                html += `
+                <tr>
+                    <td>${night.date}</td>
+                    <td class="occ-cell">
+                        ${buildOccupancyBar(
+                            night.rooms,
+                            stats.inventory.total
+                        )}
+                    </td>
+                </tr>
+                `;
+
+            });
+
+            html += `</tbody></table>`;
+
+            if (stats.stayConflicts.length > 0) {
+
+                html +=
+                    `<p class="muted-note report-danger">
+                        <strong>Heads up:</strong>
+                        this group shares a room with
+                        another saved group on
+                        ${stats.stayConflicts.length}
+                        night(s) of this stay. Check the
+                        Overlapping Rooms report in All
+                        Groups scope for details.
+                    </p>`;
+            }
+
+        } else {
+
+            html +=
+                `<h4 class="report-subhead">
+                    Hotel Occupancy${
+                        stats.arrivalDate
+                            ? " — " + stats.arrivalDate
+                            : ""
+                    }
+                </h4>`;
+
+            html += buildOccupancyBar(
+                stats.uniqueRooms,
+                stats.inventory.total
+            );
+        }
     }
 
     /* ---------- All Groups : occupancy per date ---------- */
@@ -936,42 +1139,6 @@ function renderOccupancySummary(stats) {
                     Set up the Room Master to see
                     occupancy percentages.
                 </p>`;
-        }
-
-        /* ---------- Double booking ---------- */
-
-        if (stats.conflicts.length > 0) {
-
-            html +=
-                `<p class="muted-note report-danger">
-                    <strong>Double booking:</strong><br>`;
-
-            stats.conflicts
-                .slice(0, 8)
-                .forEach(conflict => {
-
-                    html +=
-                        "Room " +
-                        reportEscape(conflict.room) +
-                        " on " +
-                        conflict.date +
-                        " — " +
-                        reportEscape(conflict.first) +
-                        " and " +
-                        reportEscape(conflict.other) +
-                        "<br>";
-
-                });
-
-            if (stats.conflicts.length > 8) {
-
-                html +=
-                    "and " +
-                    (stats.conflicts.length - 8) +
-                    " more<br>";
-            }
-
-            html += `</p>`;
         }
     }
 
@@ -1115,6 +1282,383 @@ function renderCategoryReport(stats) {
 
 
 /* =====================================================
+   CSV EXPORT
+
+   Exports exactly what the four report cards are
+   currently showing - same scope, same active filters,
+   same buildReportStats() data used to render them. No
+   new data-gathering logic here; this only reformats
+   what already gets computed for the screen.
+===================================================== */
+
+function csvStripTags(value) {
+
+    return String(value ?? "")
+        .replace(/<[^>]*>/g, "")
+        .trim();
+}
+
+
+function csvField(value) {
+
+    const text = csvStripTags(value);
+
+    if (/[",\r\n]/.test(text)) {
+
+        return '"' + text.replace(/"/g, '""') + '"';
+    }
+
+    return text;
+}
+
+
+function csvSectionLines(title, pairs) {
+
+    const lines = [title];
+
+    pairs.forEach(pair => {
+
+        lines.push(
+            csvField(pair[0]) + "," + csvField(pair[1])
+        );
+
+    });
+
+    lines.push("");
+
+    return lines;
+}
+
+
+function buildReportsCSV(stats) {
+
+    let lines = [];
+
+    lines.push(
+        csvField("Report Scope") + "," +
+        csvField(
+            stats.scope === "current"
+                ? "Current group in the Arrival Register"
+                : "All saved groups" +
+                  (stats.filtered ? " (filtered)" : "")
+        )
+    );
+
+    lines.push(
+        csvField("Generated") + "," +
+        csvField(new Date().toLocaleString())
+    );
+
+    lines.push("");
+
+    if (stats.empty) {
+
+        lines.push("No data available for this scope.");
+
+        return lines.join("\r\n");
+    }
+
+    /* ---------- Arrival Summary ---------- */
+
+    const arrivalPairs = [];
+
+    if (stats.scope === "current") {
+
+        arrivalPairs.push(["Group", stats.groupName || "Unnamed"]);
+        arrivalPairs.push(["Arrival Date", stats.arrivalDate || ""]);
+        arrivalPairs.push(["Status", stats.status || "Pending"]);
+
+    } else {
+
+        arrivalPairs.push(["Groups Matched", stats.groupCount]);
+    }
+
+    arrivalPairs.push(["Total Rooms", stats.roomCount]);
+    arrivalPairs.push(["Total Pax", stats.pax]);
+    arrivalPairs.push(["VIP Guests", stats.vip]);
+
+    lines = lines.concat(
+        csvSectionLines("ARRIVAL SUMMARY", arrivalPairs)
+    );
+
+    if (stats.scope === "all") {
+
+        const statusKeys =
+            Object.keys(stats.statuses).sort();
+
+        if (statusKeys.length > 0) {
+
+            lines = lines.concat(
+                csvSectionLines(
+                    "BY STATUS",
+                    statusKeys.map(key =>
+                        [key, stats.statuses[key]]
+                    )
+                )
+            );
+        }
+    }
+
+    /* ---------- Meal Summary ---------- */
+
+    const mealPairs = [
+        ["EP - Room Only",   stats.meals.EP],
+        ["CP - Breakfast",   stats.meals.CP],
+        ["MAP - Half Board", stats.meals.MAP],
+        ["AP - Full Board",  stats.meals.AP]
+    ];
+
+    if (stats.meals.NONE > 0) {
+
+        mealPairs.push(["Not Selected", stats.meals.NONE]);
+    }
+
+    const covered =
+        stats.meals.EP +
+        stats.meals.CP +
+        stats.meals.MAP +
+        stats.meals.AP;
+
+    mealPairs.push(["Total Covers", covered]);
+
+    lines = lines.concat(
+        csvSectionLines("MEAL SUMMARY", mealPairs)
+    );
+
+    /* ---------- Occupancy Summary ---------- */
+
+    const average =
+        stats.roomCount > 0
+            ? (stats.pax / stats.roomCount).toFixed(2)
+            : "0.00";
+
+    const occPairs = [
+        ["Rooms Occupied", stats.roomCount],
+        ["Total Guests",   stats.pax],
+        ["Avg Pax / Room", average]
+    ];
+
+    if (stats.scope === "all" && stats.groupCount > 0) {
+
+        occPairs.push([
+            "Avg Rooms / Group",
+            (stats.roomCount / stats.groupCount).toFixed(1)
+        ]);
+    }
+
+    lines = lines.concat(
+        csvSectionLines("OCCUPANCY SUMMARY", occPairs)
+    );
+
+    if (stats.scope === "current" && stats.inventory.available) {
+
+        const percent =
+            stats.inventory.total > 0
+                ? Math.round(
+                    (stats.uniqueRooms / stats.inventory.total) * 100
+                  )
+                : 0;
+
+        lines = lines.concat(
+            csvSectionLines(
+                "HOTEL OCCUPANCY" +
+                (stats.arrivalDate ? " - " + stats.arrivalDate : ""),
+                [
+                    ["Rooms Used",  stats.uniqueRooms],
+                    ["Total Rooms", stats.inventory.total],
+                    ["Percent",     percent + "%"]
+                ]
+            )
+        );
+    }
+
+    if (stats.scope === "all") {
+
+        if (stats.dateRows.length > 0) {
+
+            const dateLines =
+                ["OCCUPANCY BY ARRIVAL DATE"];
+
+            dateLines.push(
+                csvField("Date") + "," +
+                csvField("Groups") + "," +
+                csvField("Rooms") +
+                (
+                    stats.inventory.available
+                        ? "," + csvField("Percent")
+                        : ""
+                )
+            );
+
+            stats.dateRows.forEach(entry => {
+
+                let row =
+                    csvField(entry.date) + "," +
+                    csvField(entry.groups) + "," +
+                    csvField(entry.rooms);
+
+                if (stats.inventory.available) {
+
+                    const pct =
+                        stats.inventory.total > 0
+                            ? Math.round(
+                                (entry.rooms / stats.inventory.total) * 100
+                              )
+                            : 0;
+
+                    row += "," + csvField(pct + "%");
+                }
+
+                dateLines.push(row);
+            });
+
+            dateLines.push("");
+
+            lines = lines.concat(dateLines);
+        }
+
+        const conflictSummary =
+            buildConflictSummary(stats.conflicts);
+
+        if (conflictSummary.length > 0) {
+
+            const conflictLines =
+                ["OVERLAPPING ROOMS"];
+
+            conflictLines.push(
+                csvField("Room") + "," +
+                csvField("Group 1") + "," +
+                csvField("Group 2") + "," +
+                csvField("From") + "," +
+                csvField("To") + "," +
+                csvField("Nights")
+            );
+
+            conflictSummary.forEach(entry => {
+
+                conflictLines.push(
+                    csvField(entry.room) + "," +
+                    csvField(entry.groupA) + "," +
+                    csvField(entry.groupB) + "," +
+                    csvField(entry.from) + "," +
+                    csvField(entry.to) + "," +
+                    csvField(entry.nights)
+                );
+            });
+
+            conflictLines.push("");
+
+            lines = lines.concat(conflictLines);
+        }
+    }
+
+    /* ---------- Category Summary ---------- */
+
+    if (stats.inventory.available) {
+
+        if (stats.scope === "current") {
+
+            const catLines = [
+                "CATEGORY OCCUPANCY" +
+                (stats.arrivalDate ? " - " + stats.arrivalDate : "")
+            ];
+
+            catLines.push(
+                csvField("Category") + "," +
+                csvField("Used") + "," +
+                csvField("Total")
+            );
+
+            Object.keys(stats.inventory.byCategory)
+                .sort()
+                .forEach(name => {
+
+                    const used = stats.categories[name] || 0;
+
+                    const total =
+                        stats.inventory.byCategory[name];
+
+                    if (total === 0 && used === 0) return;
+
+                    catLines.push(
+                        csvField(name) + "," +
+                        csvField(used) + "," +
+                        csvField(total)
+                    );
+                });
+
+            catLines.push("");
+
+            lines = lines.concat(catLines);
+
+        } else {
+
+            lines = lines.concat(
+                csvSectionLines(
+                    "HOTEL INVENTORY",
+                    Object.keys(stats.inventory.byCategory)
+                        .sort()
+                        .map(name =>
+                            [name, stats.inventory.byCategory[name]]
+                        )
+                )
+            );
+
+            lines = lines.concat(
+                csvSectionLines(
+                    "ROOMS BOOKED BY CATEGORY",
+                    Object.keys(stats.categories)
+                        .sort()
+                        .map(name =>
+                            [name, stats.categories[name]]
+                        )
+                )
+            );
+        }
+    }
+
+    return lines.join("\r\n");
+}
+
+
+/* =====================================================
+   CSV DOWNLOAD
+===================================================== */
+
+function exportReportsCSV() {
+
+    const stats = buildReportStats();
+
+    const csv = buildReportsCSV(stats);
+
+    const blob = new Blob(
+        [csv],
+        { type: "text/csv" }
+    );
+
+    const link = document.createElement("a");
+
+    link.href = URL.createObjectURL(blob);
+
+    const scopeLabel =
+        stats.scope === "current" ? "CurrentGroup" : "AllGroups";
+
+    const dateStamp =
+        new Date().toISOString().slice(0, 10);
+
+    link.download =
+        "Reports_" + scopeLabel + "_" + dateStamp + ".csv";
+
+    link.click();
+
+    if (typeof showSaveFlash === "function") {
+
+        showSaveFlash("Reports exported");
+    }
+}
+
+
+/* =====================================================
    MAIN ENTRY POINT
 ===================================================== */
 
@@ -1137,6 +1681,142 @@ function updateReports() {
 
     renderCategoryReport(stats);
 
+    renderConflictReport(stats);
+
+}
+
+
+/* =====================================================
+   CONFLICT SUMMARY (DEP5 follow-up)
+
+   Collapses per-night conflict entries (one per
+   overlapping night, from buildDateOccupancy) into one
+   row per room + pair-of-groups, spanning the full date
+   range of the overlap. A 5-night double booking is one
+   row here, not five.
+===================================================== */
+
+function buildConflictSummary(conflicts) {
+
+    const grouped = {};
+
+    conflicts.forEach(conflict => {
+
+        const pairKey =
+            conflict.room + "|" +
+            [conflict.first, conflict.other].sort().join("|");
+
+        if (!grouped[pairKey]) {
+
+            grouped[pairKey] = {
+                room:   conflict.room,
+                groupA: conflict.first,
+                groupB: conflict.other,
+                dates:  []
+            };
+        }
+
+        grouped[pairKey].dates.push(conflict.date);
+    });
+
+    return Object.values(grouped).map(entry => {
+
+        const sortedDates =
+            entry.dates.slice().sort();
+
+        return {
+            room:   entry.room,
+            groupA: entry.groupA,
+            groupB: entry.groupB,
+            from:   sortedDates[0],
+            to:     sortedDates[sortedDates.length - 1],
+            nights: sortedDates.length
+        };
+
+    });
+}
+
+
+/* =====================================================
+   CARD : OVERLAPPING ROOMS
+
+   All Groups scope only - conflicts are inherently a
+   cross-group comparison. Dedicated card, not buried
+   inside Occupancy Summary, so a real double booking
+   isn't easy to miss.
+===================================================== */
+
+function renderConflictReport(stats) {
+
+    const target =
+        document.getElementById("reportConflictSummary");
+
+    if (!target) return;
+
+    if (stats.scope !== "all") {
+
+        target.innerHTML =
+            buildEmptyState(
+                "Switch to All Groups to check for " +
+                "overlapping rooms."
+            );
+
+        return;
+    }
+
+    const summary =
+        buildConflictSummary(stats.conflicts);
+
+    if (summary.length === 0) {
+
+        target.innerHTML =
+            buildEmptyState("No overlapping rooms found.");
+
+        return;
+    }
+
+    let html =
+        `<table class="data-table report-table">
+            <thead>
+                <tr>
+                    <th>Room</th>
+                    <th>Groups</th>
+                    <th>Dates</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+    summary
+        .sort((a, b) => a.from.localeCompare(b.from))
+        .forEach(entry => {
+
+            const dateRange =
+                entry.from === entry.to
+                    ? entry.from
+                    : entry.from + " to " + entry.to;
+
+            html += `
+            <tr>
+                <td>${reportEscape(entry.room)}</td>
+                <td>
+                    ${reportEscape(entry.groupA)}
+                    <br>
+                    ${reportEscape(entry.groupB)}
+                </td>
+                <td>
+                    ${dateRange}
+                    <div class="muted-note occ-sub">
+                        ${entry.nights} night(s)
+                    </div>
+                </td>
+            </tr>
+            `;
+
+        });
+
+    html += `</tbody></table>`;
+
+    target.innerHTML = html;
 }
 
 
@@ -1183,6 +1863,13 @@ function initializeReports() {
         ?.addEventListener(
             "click",
             clearReportFilters
+        );
+
+    document
+        .getElementById("btnExportReportsCSV")
+        ?.addEventListener(
+            "click",
+            exportReportsCSV
         );
 
     updateReportScopeButtons();

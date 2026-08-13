@@ -117,6 +117,42 @@ function getGroupsInRange(from, to) {
 }
 
 
+function getRoomsForDepartureDate(date) {
+
+    /* Filters by ROOM, not group - DEP5c established that
+       individual rooms can leave on their own date via
+       room.departureOverride, so a group-level filter here
+       would miss or wrongly include rooms. Reuses
+       getRoomDepartureDate() unchanged, same precedence
+       the occupancy report and the automatic Checked-Out
+       transition already rely on. */
+
+    const entries = [];
+
+    GroupRepository.getAll().forEach(group => {
+
+        if ((group.status || "") === "Cancelled") return;
+
+        getRealRooms(group).forEach(room => {
+
+            const departure =
+                typeof getRoomDepartureDate === "function"
+                    ? getRoomDepartureDate(group, room)
+                    : (group.departureDate || "");
+
+            if (departure === date) {
+
+                entries.push({ group: group, room: room });
+            }
+
+        });
+
+    });
+
+    return entries;
+}
+
+
 function getRealRooms(group) {
 
     return (group.rooms || []).filter(room =>
@@ -1252,6 +1288,220 @@ table.doc-table.small th:first-child{ text-align:left; }
 
 
 /* =====================================================
+   REPORT E : DAILY DEPARTURE MANIFEST
+===================================================== */
+
+function printBlankDepartureFallback(date) {
+
+    const rowCount = 25;
+
+    let tableRows = "";
+
+    for (let i = 1; i <= rowCount; i++) {
+
+        tableRows += `
+        <tr>
+            <td>${i}</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        `;
+    }
+
+    const html = `
+
+${buildReportHeader(
+    "DAILY DEPARTURE MANIFEST",
+    "Departures on " + date
+)}
+
+<p class="doc-warning">
+    No rooms are currently scheduled to depart on
+    ${reportPrintEscape(date)}. A blank checklist is
+    provided below for manual use.
+    Printed ${reportPrintEscape(new Date().toLocaleString())}.
+</p>
+
+<table class="doc-table">
+
+<thead>
+    <tr>
+        <th>Sr</th>
+        <th>Room</th>
+        <th>Group</th>
+        <th>Guest Name</th>
+        <th>Pax</th>
+        <th>Mobile No</th>
+        <th>Departed</th>
+    </tr>
+</thead>
+
+<tbody>${tableRows}</tbody>
+
+</table>
+
+${buildSignOff(["Front Office", "Duty Manager"])}
+
+`;
+
+    const styles =
+        REGISTER_COLUMN_STYLES +
+        `
+        table.doc-table td{ height:34px; }
+        `;
+
+    openPrintWindow(
+        "Daily Departure Manifest — Blank",
+        html,
+        styles
+    );
+}
+
+
+function printDepartureManifest() {
+
+    const date = getReportDate();
+
+    const entries = getRoomsForDepartureDate(date);
+
+    const title = "DAILY DEPARTURE MANIFEST";
+
+    if (entries.length === 0) {
+
+        printBlankDepartureFallback(date);
+
+        return;
+    }
+
+    let rows = "";
+
+    let totalPax = 0;
+
+    let departedCount = 0;
+
+    entries
+        .sort((a, b) =>
+            (a.group.groupName || "").localeCompare(
+                b.group.groupName || ""
+            )
+        )
+        .forEach((entry, index) => {
+
+            const room = entry.room;
+
+            const group = entry.group;
+
+            const pax = Number(room.pax) || 0;
+
+            totalPax += pax;
+
+            if (room.checkedOut) departedCount++;
+
+            rows += `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${reportPrintEscape(room.roomNo)}</td>
+                <td>${reportPrintEscape(group.groupName)}</td>
+                <td>${reportPrintEscape(room.guestName)}</td>
+                <td>${pax}</td>
+                <td>${reportPrintEscape(room.mobile) || "&nbsp;"}</td>
+                <td>${room.meal ? reportPrintEscape(room.meal) : ""}</td>
+                <td>${room.vip ? "VIP" : ""}</td>
+                <td>${room.checkedOut ? "✓" : ""}</td>
+            </tr>
+            `;
+
+        });
+
+    const html = `
+
+${buildReportHeader(title, "Departures on " + date)}
+
+<table class="doc-table">
+
+    <thead>
+        <tr>
+            <th>Sr</th>
+            <th>Room</th>
+            <th>Group</th>
+            <th>Guest Name</th>
+            <th>Pax</th>
+            <th>Mobile</th>
+            <th>Meal</th>
+            <th>VIP</th>
+            <th>Departed</th>
+        </tr>
+    </thead>
+
+    <tbody>${rows}</tbody>
+
+    <tfoot>
+        <tr class="total-row">
+            <td colspan="4">TOTAL — ${entries.length} room(s)</td>
+            <td>${totalPax}</td>
+            <td colspan="4">
+                ${departedCount} of ${entries.length} already checked out
+            </td>
+        </tr>
+    </tfoot>
+
+</table>
+
+<p class="doc-note">
+    Departure date reflects each room's own checkout date,
+    including any per-room override - not the group's
+    general departure date where the two differ.
+</p>
+
+${buildSignOff(["Front Office", "Duty Manager"])}
+
+`;
+
+    const styles = `
+
+table.doc-table th,
+table.doc-table td{ text-align:center; }
+
+table.doc-table th:nth-child(3),
+table.doc-table td:nth-child(3),
+table.doc-table th:nth-child(4),
+table.doc-table td:nth-child(4){ text-align:left; }
+
+table.doc-table th:nth-child(1),
+table.doc-table td:nth-child(1){ width:4%; }
+
+table.doc-table th:nth-child(3),
+table.doc-table td:nth-child(3){ width:20%; }
+
+table.doc-table th:nth-child(4),
+table.doc-table td:nth-child(4){ width:20%; }
+
+table.doc-table td{ height:24px; }
+
+tfoot .total-row td{
+    font-weight:bold;
+    background:#e8e8e8;
+}
+
+tfoot .total-row td:first-child{ text-align:left; }
+
+.doc-note{
+    font-size:9px;
+    margin-top:10px;
+    text-align:left;
+}
+
+`;
+
+    openPrintWindow(title, html, styles);
+}
+
+
+/* =====================================================
    DATE RANGE VISIBILITY
 ===================================================== */
 
@@ -1307,6 +1557,10 @@ function printSelectedReport() {
 
         case "flash":
             printManagementFlash();
+            break;
+
+        case "departure":
+            printDepartureManifest();
             break;
     }
 }

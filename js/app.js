@@ -1,3 +1,4 @@
+// @ts-nocheck
 /* =====================================================
    HOTEL GROUP OPERATIONS SUITE
    File    : js/app.js
@@ -38,9 +39,6 @@
    application, at the bottom of this file. diagnostics.js
    adds a second on purpose, delayed, so it can check that
    every module finished booting.
-===================================================== */
-
-
 /* =====================================================
    UTILITIES
 ===================================================== */
@@ -944,19 +942,7 @@ function initializeDepartureDateSync() {
 }
 
 
-/* =====================================================
-   NO SHOW REVERSAL GUARD
 
-   No Show is normally set automatically (see
-   applyAutomaticStatusTransitions in groups.js). Changing
-   AWAY from it by hand needs the Manager PIN, same as
-   reversing anything else auto-set - a status the
-   receptionist picked themselves never needs this.
-
-   Auto-transitioning INTO Checked Out needs no such
-   guard, per the locked spec - that direction is simply
-   the normal end of a stay, not a correction.
-===================================================== */
 
 /* =====================================================
    STATUS REVERSAL GUARD
@@ -1035,6 +1021,61 @@ function initializeStatusReversalGuard() {
         return true;
     }
 
+    /* =====================================================
+       OFFER DATE UPDATE AFTER A NO SHOW REVERSAL
+
+       Runs only after a successful PIN-gated reversal of an
+       AUTO-set No Show. Offers to update the Arrival Date;
+       Nights and Departure Date follow automatically through
+       the same change listener that already governs manual
+       edits (enforceArrivalDateFloor -> syncDepartureFromNights,
+       both above in this file), so no new validation logic is
+       added here. Cross-group conflict checking still happens
+       later, exactly as normal, the moment the receptionist
+       hits Save (see saveCurrentGroup in groups.js).
+    ===================================================== */
+
+    async function offerDateUpdateAfterReversal() {
+
+        const wantsUpdate = await showConfirm(
+            "No Show status has been reversed.\n\n" +
+            "This group's arrival date may be outdated. " +
+            "Update it now?",
+            "Update Arrival Date?",
+            {
+                okLabel:     "Update Date",
+                cancelLabel: "Not Now"
+            }
+        );
+
+        if (!wantsUpdate) return;
+
+        const arrivalInput =
+            document.getElementById("arrivalDate");
+
+        if (!arrivalInput) return;
+
+        const today =
+            typeof getTodayString === "function"
+                ? getTodayString()
+                : new Date().toISOString().slice(0, 10);
+
+        const entered = await showPrompt(
+            "Nights and Departure Date will update " +
+            "automatically based on the current Nights " +
+            "value.",
+            arrivalInput.value || today,
+            "New Arrival Date",
+            { inputType: "date" }
+        );
+
+        if (entered === null || entered === "") return;
+
+        arrivalInput.value = entered;
+
+        arrivalInput.dispatchEvent(new Event("change"));
+    }
+
     statusInput.addEventListener("change", async function () {
 
         const wasAutoNoShow =
@@ -1080,6 +1121,8 @@ function initializeStatusReversalGuard() {
 
                 });
             }
+
+            await offerDateUpdateAfterReversal();
 
         /* ---------- Checked Out, always ---------- */
 

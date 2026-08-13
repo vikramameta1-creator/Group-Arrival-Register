@@ -143,18 +143,23 @@ function resetCurrentGroupIdentity() {
    Runs once at startup. Two rules, both date-driven:
 
        Confirmed  + arrival date passed, never checked in
-                  -> No Show (noShowFlag marks it as
+       or Pending -> No Show (noShowFlag marks it as
                      AUTO-set, so a manual reversal in the
                      dropdown can require the Manager PIN -
-                     see initializeDepartureDateSync() in
-                     app.js for the reversal gate)
+                     see initializeStatusReversalGuard() in
+                     app.js for the reversal gate). Pending
+                     is treated identically to Confirmed
+                     here - an unconfirmed group whose
+                     arrival date has passed with no check-in
+                     is just as much a No Show as a
+                     confirmed one that never arrived.
 
        Checked In + every room's departure date has passed
                   -> Checked Out
 
-   Pending never changes here - only manual checkout or
-   delete moves it. Arrived, Checked Out and Cancelled are
-   settled states, untouched.
+   Arrived, Checked Out and Cancelled are settled states,
+   untouched here - only manual checkout or delete moves
+   them.
 
    Every transition is written to the audit trail. This
    only runs against SAVED groups via GroupRepository -
@@ -181,14 +186,16 @@ function applyAutomaticStatusTransitions() {
 
         const status = (group.status || "").trim();
 
-        /* ---------- Confirmed -> No Show ---------- */
+        /* ---------- Confirmed / Pending -> No Show ---------- */
 
         if (
-            status === "Confirmed" &&
+            (status === "Confirmed" || status === "Pending") &&
             group.arrivalDate &&
             today > group.arrivalDate &&
             !group.noShowFlag
         ) {
+
+            const fromStatus = status;
 
             group.status = "No Show";
 
@@ -201,7 +208,8 @@ function applyAutomaticStatusTransitions() {
             recordAuditEntry("AUTO_NO_SHOW", {
 
                 group:       group.groupName,
-                arrivalDate: group.arrivalDate
+                arrivalDate: group.arrivalDate,
+                fromStatus:  fromStatus
 
             });
 

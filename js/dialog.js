@@ -116,7 +116,15 @@ function renderDialog(options) {
                         options.message,
                         options.inputValue || ""
                       )
-                    : (window.alert(options.message), true)
+                    : options.type === "form"
+                        ? (
+                            window.alert(
+                                "This dialog needs the in-page " +
+                                "dialog markup, which is missing."
+                            ),
+                            null
+                          )
+                        : (window.alert(options.message), true)
         );
 
         return;
@@ -153,7 +161,8 @@ function renderDialog(options) {
     const defaultTitles = {
         alert:   "Notice",
         confirm: "Please Confirm",
-        prompt:  "Enter Value"
+        prompt:  "Enter Value",
+        form:    "Enter Details"
     };
 
     titleEl.textContent =
@@ -172,9 +181,17 @@ function renderDialog(options) {
 
     /* ---------- Input ---------- */
 
+    const formWrap =
+        document.getElementById("appDialogFormWrap");
+
+    const formFields =
+        document.getElementById("appDialogFormFields");
+
     if (type === "prompt") {
 
         inputWrap.style.display = "block";
+
+        if (formWrap) formWrap.style.display = "none";
 
         input.type = options.inputType || "text";
 
@@ -191,9 +208,62 @@ function renderDialog(options) {
             input.removeAttribute("maxlength");
         }
 
+    } else if (type === "form" && formWrap && formFields) {
+
+        inputWrap.style.display = "none";
+
+        formWrap.style.display = "block";
+
+        formFields.innerHTML = "";
+
+        (options.fields || []).forEach(function (field) {
+
+            const row = document.createElement("div");
+
+            row.className = "form-group dialog-form-row";
+
+            const label = document.createElement("label");
+
+            label.setAttribute(
+                "for",
+                "appDialogField_" + field.id
+            );
+
+            label.textContent = field.label || field.id;
+
+            const fieldInput = document.createElement("input");
+
+            fieldInput.type = field.type || "number";
+
+            fieldInput.id = "appDialogField_" + field.id;
+
+            fieldInput.className = "dialog-form-input";
+
+            fieldInput.value =
+                field.value != null ? field.value : "";
+
+            if (field.min != null) fieldInput.min = field.min;
+
+            if (field.max != null) fieldInput.max = field.max;
+
+            if (field.placeholder) {
+
+                fieldInput.placeholder = field.placeholder;
+            }
+
+            row.appendChild(label);
+
+            row.appendChild(fieldInput);
+
+            formFields.appendChild(row);
+
+        });
+
     } else {
 
         inputWrap.style.display = "none";
+
+        if (formWrap) formWrap.style.display = "none";
 
         input.value = "";
     }
@@ -239,6 +309,20 @@ function renderDialog(options) {
             input.focus();
 
             input.select();
+
+        } else if (type === "form" && formFields) {
+
+            const firstField =
+                formFields.querySelector(".dialog-form-input");
+
+            if (firstField) {
+
+                firstField.focus();
+
+            } else {
+
+                okButton.focus();
+            }
 
         } else {
 
@@ -313,8 +397,40 @@ function confirmDialog() {
     const inputWrap =
         document.getElementById("appDialogInputWrap");
 
+    const formWrap =
+        document.getElementById("appDialogFormWrap");
+
+    const formFields =
+        document.getElementById("appDialogFormFields");
+
     const isPrompt =
         inputWrap && inputWrap.style.display !== "none";
+
+    const isForm =
+        formWrap && formWrap.style.display !== "none";
+
+    if (isForm) {
+
+        const result = {};
+
+        formFields
+            .querySelectorAll(".dialog-form-input")
+            .forEach(function (fieldInput) {
+
+                const fieldId =
+                    fieldInput.id.replace(
+                        "appDialogField_",
+                        ""
+                    );
+
+                result[fieldId] = fieldInput.value;
+
+            });
+
+        finishDialog(result);
+
+        return;
+    }
 
     if (isPrompt) {
 
@@ -332,10 +448,16 @@ function cancelDialog() {
     const inputWrap =
         document.getElementById("appDialogInputWrap");
 
+    const formWrap =
+        document.getElementById("appDialogFormWrap");
+
     const isPrompt =
         inputWrap && inputWrap.style.display !== "none";
 
-    finishDialog(isPrompt ? null : false);
+    const isForm =
+        formWrap && formWrap.style.display !== "none";
+
+    finishDialog((isPrompt || isForm) ? null : false);
 }
 
 
@@ -384,6 +506,21 @@ function showPrompt(message, defaultValue, title, options) {
 }
 
 
+function showForm(fields, title, options) {
+
+    return showDialog(
+        Object.assign(
+            {
+                type:   "form",
+                fields: fields,
+                title:  title
+            },
+            options || {}
+        )
+    );
+}
+
+
 /* =====================================================
    STARTUP
 ===================================================== */
@@ -404,7 +541,10 @@ function initializeDialogs() {
         .getElementById("appDialog")
         ?.addEventListener("click", function (event) {
 
-            if (event.target === this) {
+            if (
+                event.target === this &&
+                currentDialogType !== "form"
+            ) {
 
                 cancelDialog();
             }
@@ -447,6 +587,50 @@ function initializeDialogs() {
                 target.tagName === "TEXTAREA"
             ) {
                 return;
+            }
+
+            /* Inside a multi-field form, Enter moves to the
+               next field instead of submitting immediately -
+               only the Confirm button, or Enter on the LAST
+               field, actually submits. Without this, pressing
+               Enter out of habit between fields submitted the
+               whole form early with the remaining fields still
+               at their default value - the "no time to finish
+               typing" bug. */
+
+            if (
+                target &&
+                target.classList &&
+                target.classList.contains("dialog-form-input")
+            ) {
+
+                const allFields =
+                    Array.prototype.slice.call(
+                        document.querySelectorAll(
+                            "#appDialogFormFields .dialog-form-input"
+                        )
+                    );
+
+                const currentIndex =
+                    allFields.indexOf(target);
+
+                const isLastField =
+                    currentIndex === allFields.length - 1;
+
+                if (!isLastField) {
+
+                    event.preventDefault();
+
+                    const nextField =
+                        allFields[currentIndex + 1];
+
+                    if (nextField) nextField.focus();
+
+                    return;
+                }
+
+                /* Last field - fall through, Enter here
+                   really does mean "I'm done". */
             }
 
             event.preventDefault();

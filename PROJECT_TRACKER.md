@@ -5,130 +5,89 @@
 
 # 1. PROJECT INFORMATION
 
-**Project Name:** Hotel Group Operations Suite (HRGM — Hotel Arrival Group
-Management)
+**Project Name:** Hotel Group Operations Suite (HRGM)
 
 **Current Version:** v1.0 Release Candidate track
 
 **Platform:** HTML / CSS / vanilla JavaScript, 13 modules, no build tools
-during development. LocalStorage-based persistence, schema-versioned
-(`SCHEMA_VERSION = 4`, with a working migration chain already carrying
-groups through ISO timestamps → departure dates → the audit log).
+during development. LocalStorage, schema-versioned (`SCHEMA_VERSION = 4`).
 
-**Planned v2.0:** Electron + SQLite + bytenode, auto-update. Deliberately
-not started early. `database.js`'s own header already states the intent
-plainly: "When the suite moves to a shared database or an API, this is
-the only file that changes" — the repository pattern was built for this
-migration from the start.
-
-**Sister project:** HKIM (Hotel Key Inventory Manager), separate codebase.
-
-**Scope boundary, permanent:** one job — group bookings — no non-group /
-walk-in / individual reservation data, ever.
+**Scope boundary, permanent:** group bookings only, no non-group/walk-in
+data, ever.
 
 ---
 
-# 2. MODULE INVENTORY — COMPLETE
+# 2. MODULE INVENTORY — GENUINELY COMPLETE
 
-All 13 modules now reviewed. Load order:
-`version.js, dialog.js, database.js, printing.js, room-master.js,
-register.js, dashboard.js, reports.js, report-print.js, groups.js, app.js,
-shortcuts.js, diagnostics.js`.
+All 13 modules now directly reviewed, no exceptions remaining.
 
-- **`database.js`** — loads FIRST by design. Owns `DB`, `GroupRepository`
-  (see correction below), `recordAuditEntry()`, `nowISO()`/timestamp
-  helpers, `migrateDatabase()`, `saveDatabase()`/`showSaveFlash()`, and
-  **`getRoomDepartureDate(group, room)`** — the function the whole module
-  review was ultimately searching for.
-- **`dialog.js`** — `showAlert`/`showConfirm`/`showPrompt`/`showForm`
-  (new this session).
-- **`printing.js`** — Print Register/Rooming List/Blank Register, meal
-  auto-fill via `showForm`.
-- **`room-master.js`** — `RoomMasterRepository`, category + occupancy
-  rules (children are a subset of `maxOccupancy`, never additive), the
-  Manager PIN system (`hashPin`, `hasRoomMasterPin`, `isRoomMasterLocked`)
-  — the same PIN the No Show/Checked Out reversal guard in `app.js` reuses
-  on purpose.
-- **`register.js`** — arrival register engine, `REGISTER_COLUMNS` map,
-  per-room checkout override UI (`.checkoutOverrideCheck` /
-  `.checkoutOverrideDate` → `room.departureOverride`), snapshot/restore,
-  search/filter. Reviewed in full while diagnosing the meal-form bug —
-  clean, its `keydown` handler is properly scoped to the register table
-  only.
-- **`dashboard.js`** — KPI cards, Arrival Control Center, Saved Groups
-  panel. Own documented incident: Saved Groups must carry the *real*
-  `DB.groups` index through filter/sort, never a filtered position — a
-  parallel lesson to the id-vs-name matching rule elsewhere.
-- **`reports.js`** — five dashboard cards, CSV export, night-by-night
-  occupancy (DEP5/5b/5c, see below).
-- **`report-print.js`** — the actual "four printable reports": Daily
-  Arrival Manifest, Housekeeping Allocation, F&B Covers, Management Flash.
-  Its own header still says "no departure date" is a data-model
-  limitation — that's now stale, DEP5 added it. A Departure Manifest is
-  technically buildable now if ever wanted; not built.
-- **`groups.js`** — GroupRepository *consumer*, not owner (see correction).
-  Save/load/delete, automatic status transitions, cross-group conflicts.
-- **`app.js`** — bootstrap, status-reversal guard, autosave.
-- **`shortcuts.js`** — global keyboard shortcuts. Reviewed in full,
-  `isDialogOpen()` guard correctly implemented, cleared as a suspect
-  during the meal-form bug hunt.
-- **`diagnostics.js`** — version registry, startup diagnostic report.
-  Referenced throughout, never directly opened — nothing has ever
-  required it.
+- **`version.js`** — release identity (`APP_NAME`/`APP_VERSION`/`APP_BUILD`),
+  `EXPECTED_MODULES` manifest (all 13 files, file-level version check),
+  `registerModuleVersion()`, `getVersionReport()`. Loads first, before
+  `dialog.js`.
+- **`diagnostics.js`** — the most thorough file in the project. Checks
+  function existence per module (`MODULE_MANIFEST`), global objects
+  (`DB`, `GroupRepository`, `RoomMasterRepository`,
+  `REGISTER_COLUMNS`, etc.), critical DOM element IDs
+  (`CRITICAL_ELEMENTS`), register header/row column-count consistency,
+  **duplicate `<script>` tag detection**, version mismatches against
+  `version.js`, and localStorage usage — plus a downloadable diagnostic
+  report a hotel can email support instead of reading console output
+  over the phone. Deliberately excludes itself from `MODULE_MANIFEST`'s
+  function-count (a file checking its own existence is circular) — this
+  is why the startup banner correctly reads "12 modules checked," not 13.
+  Not a bug; confirmed by reading the actual code, not inferred.
 
-## Correction to prior tracker versions
-
-Earlier notes in this file credited `groups.js` with owning
-`GroupRepository`. **That was wrong** — carried forward from the original
-pre-modularization file at the very start of this project's AI-assisted
-work, never re-verified against the real, current `groups.js`. Checked
-directly: `groups.js` only ever calls `GroupRepository.*` methods, never
-declares it. `database.js` is the sole, correct owner, confirmed with a
-zero-collision check across all 13 modules. The actual code was never
-wrong — only this document was.
+Everything else — `database.js`, `dialog.js`, `printing.js`,
+`room-master.js`, `register.js`, `dashboard.js`, `reports.js`,
+`report-print.js`, `groups.js`, `app.js`, `shortcuts.js` — reviewed
+previously, all clean, zero function-name collisions across the entire
+project confirmed by direct comparison, not assumption.
 
 ---
 
 # 3. COMPLETED THIS SESSION
 
-DEP5 (night-by-night occupancy, All Groups) → dedicated Overlapping Rooms
-report → DEP5b (Current Group scope made hotel-wide) → `showForm()` added
-to `dialog.js` → meal-prompt polish closed → Enter-key premature-submit
-bug fixed → backdrop-click-cancels-form bug fixed (CSS gap closed +
-structural fix) → `register.js`/`shortcuts.js` reviewed and cleared →
-`dashboard.js`/`report-print.js`/`room-master.js` reviewed, clean →
-**DEP5c** — `buildDateOccupancy()` now computes each room's occupied
-nights individually via `getRoomDepartureDate(group, room)` instead of
-one date range applied to every room in a group. A room with its own
-"Different checkout" override now correctly leaves the occupancy count,
-and the Overlapping Rooms report, on its own date — not the group's
-general one. Fixes both DEP5 and DEP5b at once, since both share this one
-function. `database.js` reviewed, completing full module coverage.
+- **Departure Manifest** (`RPT3`/`RPT3b`/`RPT3c`) — fifth report in
+  `report-print.js`. Filters by per-room departure date via
+  `getRoomDepartureDate()`, respecting checkout overrides. Grouped by
+  group name, matching the Housekeeping sheet's pattern. Dropdown option
+  added permanently. Fully tested including the override-specific
+  behavior.
+- **`diagnostics.js` updated (`DIAG1`)** — `MODULE_MANIFEST` and
+  `CRITICAL_ELEMENTS` extended to cover everything built this session:
+  `showForm`, `getRoomDepartureDate`, `promptMealBreakdown`,
+  `buildNightsInRange`, `buildConflictSummary`, `renderConflictReport`,
+  `exportReportsCSV`, `printDepartureManifest`,
+  `getRoomsForDepartureDate`, `reportConflictSummary`,
+  `appDialogFormWrap`, `appDialogFormFields`. Check logic itself
+  untouched — only what gets checked was extended.
+- **Regression found and fixed, same session.** The newly-updated
+  `diagnostics.js` immediately caught `MISSING ELEMENT
+  #reportConflictSummary` on the very next reload — proof the update
+  works. Root cause: the Overlapping Rooms card had originally been
+  added by the developer manually (the file wasn't available to edit
+  directly at the time), and that change was never synced into the
+  working copy used for later full-file HTML deliveries — so an
+  unrelated, correctly-verified edit (the departure dropdown option)
+  silently overwrote it. Restored. New rule added to `CLAUDE.md` (§2.16):
+  a manually-requested edit has to be synced into the working copy the
+  moment the file becomes available, not left as a gap until the next
+  full-file replacement quietly erases it.
 
 ---
 
-# 4. LOGGED, NOT YET BUILT
+# 4. KNOWN ISSUES
 
-Nothing currently open.
-
----
-
-# 5. DEFERRED
-
-SQL database migration — v2.0, `database.js` already built with this
-migration in mind (see §1).
+None. Full module review is complete, every gap found during it —
+including the one caught by this session's own diagnostics update — has
+been resolved and verified.
 
 ---
 
-# 6. KNOWN ISSUES
+# 5. NEXT UP
 
-None. Full module review is complete and every gap found during it has
-been resolved.
-
----
-
-# 7. NEXT UP
-
-No feature work or bug currently queued. Options if wanted: a Departure
-Manifest report (technically buildable now, per §2); nothing else is
-outstanding.
+Nothing currently queued. Full module inventory done, all recent feature
+work (DEP5/5b/5c, Overlapping Rooms, `showForm`, Departure Manifest,
+diagnostics coverage) tested and confirmed working. Bring whatever's next
+whenever ready.

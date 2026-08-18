@@ -1377,35 +1377,71 @@ function printDepartureManifest() {
         return;
     }
 
-    let rows = "";
+    /* Grouped by group name, same pattern as the
+       Housekeeping sheet groups by category - a header
+       row per group, then that group's departing rooms
+       underneath. Checked-out rooms are NOT filtered out
+       - they stay listed under their group with a
+       checkmark, so the whole group's departure picture
+       stays together. */
+
+    const byGroup = {};
+
+    entries.forEach(entry => {
+
+        const key =
+            entry.group.groupName || "Unnamed Group";
+
+        if (!byGroup[key]) byGroup[key] = [];
+
+        byGroup[key].push(entry);
+
+    });
+
+    let body = "";
 
     let totalPax = 0;
 
     let departedCount = 0;
 
-    entries
-        .sort((a, b) =>
-            (a.group.groupName || "").localeCompare(
-                b.group.groupName || ""
-            )
-        )
-        .forEach((entry, index) => {
+    let srCounter = 0;
+
+    Object.keys(byGroup).sort().forEach(groupName => {
+
+        const list = byGroup[groupName];
+
+        const groupPax =
+            list.reduce(
+                (t, e) => t + (Number(e.room.pax) || 0),
+                0
+            );
+
+        body += `
+        <tr class="group-row">
+            <td colspan="8">
+                ${reportPrintEscape(groupName)}
+                &nbsp;—&nbsp; ${list.length} room(s),
+                ${groupPax} guest(s)
+            </td>
+        </tr>
+        `;
+
+        list.forEach(entry => {
 
             const room = entry.room;
-
-            const group = entry.group;
 
             const pax = Number(room.pax) || 0;
 
             totalPax += pax;
 
+            srCounter++;
+
             if (room.checkedOut) departedCount++;
 
-            rows += `
+            body += `
             <tr>
-                <td>${index + 1}</td>
+                <td>${srCounter}</td>
                 <td>${reportPrintEscape(room.roomNo)}</td>
-                <td>${reportPrintEscape(group.groupName)}</td>
                 <td>${reportPrintEscape(room.guestName)}</td>
                 <td>${pax}</td>
                 <td>${reportPrintEscape(room.mobile) || "&nbsp;"}</td>
@@ -1417,6 +1453,8 @@ function printDepartureManifest() {
 
         });
 
+    });
+
     const html = `
 
 ${buildReportHeader(title, "Departures on " + date)}
@@ -1427,7 +1465,6 @@ ${buildReportHeader(title, "Departures on " + date)}
         <tr>
             <th>Sr</th>
             <th>Room</th>
-            <th>Group</th>
             <th>Guest Name</th>
             <th>Pax</th>
             <th>Mobile</th>
@@ -1437,11 +1474,11 @@ ${buildReportHeader(title, "Departures on " + date)}
         </tr>
     </thead>
 
-    <tbody>${rows}</tbody>
+    <tbody>${body}</tbody>
 
     <tfoot>
         <tr class="total-row">
-            <td colspan="4">TOTAL — ${entries.length} room(s)</td>
+            <td colspan="3">TOTAL — ${entries.length} room(s)</td>
             <td>${totalPax}</td>
             <td colspan="4">
                 ${departedCount} of ${entries.length} already checked out
@@ -1454,7 +1491,8 @@ ${buildReportHeader(title, "Departures on " + date)}
 <p class="doc-note">
     Departure date reflects each room's own checkout date,
     including any per-room override - not the group's
-    general departure date where the two differ.
+    general departure date where the two differ. Rooms
+    already checked out remain listed under their group.
 </p>
 
 ${buildSignOff(["Front Office", "Duty Manager"])}
@@ -1467,20 +1505,21 @@ table.doc-table th,
 table.doc-table td{ text-align:center; }
 
 table.doc-table th:nth-child(3),
-table.doc-table td:nth-child(3),
-table.doc-table th:nth-child(4),
-table.doc-table td:nth-child(4){ text-align:left; }
+table.doc-table td:nth-child(3){ text-align:left; }
 
 table.doc-table th:nth-child(1),
-table.doc-table td:nth-child(1){ width:4%; }
+table.doc-table td:nth-child(1){ width:5%; }
 
 table.doc-table th:nth-child(3),
-table.doc-table td:nth-child(3){ width:20%; }
-
-table.doc-table th:nth-child(4),
-table.doc-table td:nth-child(4){ width:20%; }
+table.doc-table td:nth-child(3){ width:26%; }
 
 table.doc-table td{ height:24px; }
+
+tr.group-row td{
+    background:#e8e8e8;
+    font-weight:bold;
+    text-align:left;
+}
 
 tfoot .total-row td{
     font-weight:bold;

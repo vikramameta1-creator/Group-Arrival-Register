@@ -30,20 +30,21 @@ const MODULE_MANIFEST = {
 
     "dialog.js": [
         "showDialog", "showAlert", "showConfirm",
-        "showPrompt", "initializeDialogs", "finishDialog"
+        "showPrompt", "showForm", "initializeDialogs",
+        "finishDialog"
     ],
 
     "database.js": [
         "loadDatabase", "saveDatabase", "migrateDatabase",
         "nowISO", "toISOTimestamp", "formatTimestamp",
-        "showSaveFlash"
+        "showSaveFlash", "getRoomDepartureDate"
     ],
 
     "printing.js": [
         "openPrintWindow", "printRegister",
         "printBlankRegister", "printRoomingList",
         "escapeHTML", "buildDocumentHeader",
-        "buildTotalsBlock"
+        "buildTotalsBlock", "promptMealBreakdown"
     ],
 
     "room-master.js": [
@@ -91,6 +92,8 @@ const MODULE_MANIFEST = {
         "updateReports", "buildReportStats",
         "setReportScope", "getFilteredGroups",
         "getInventorySnapshot", "buildDateOccupancy",
+        "buildNightsInRange", "buildConflictSummary",
+        "renderConflictReport", "exportReportsCSV",
         "renderCategoryReport", "initializeReports"
     ],
 
@@ -136,6 +139,7 @@ const MODULE_MANIFEST = {
     "report-print.js": [
         "printArrivalManifest", "printHousekeepingSheet",
         "printCoversSheet", "printManagementFlash",
+        "printDepartureManifest", "getRoomsForDepartureDate",
         "printSelectedReport", "initializeReportPrinting",
         "getGroupsForDate", "summariseRooms",
         "buildReportHeader", "getReportDate"
@@ -173,9 +177,11 @@ const CRITICAL_ELEMENTS = [
     "roomMasterSummary", "newRoomCategory",
     "reportArrivalSummary", "reportMealSummary",
     "reportOccupancySummary", "reportCategorySummary",
+    "reportConflictSummary",
     "appVersion",
     "appDialog", "appDialogOk", "appDialogCancel",
     "appDialogInput", "appDialogTitle",
+    "appDialogFormWrap", "appDialogFormFields",
     "settingHotelName", "settingFooterText",
     "settingRoomNumbersOnly", "settingRestrictRooms",
     "draftBanner", "bulkImportPanel", "notesPanel",

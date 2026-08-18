@@ -71,6 +71,10 @@
         Arrival Register
     </button>
 
+    <button class="tab-btn" data-tab="registerToolsPage">
+        Register Tools
+    </button>
+
     <button class="tab-btn" data-tab="roomingPage">
         Rooming List
     </button>
@@ -417,74 +421,6 @@
 
         </div>
 
-        <div class="action-group">
-
-            <div class="action-group-title">Meal Plan</div>
-
-            <div class="action-bar">
-
-                <label class="sr-label" for="bulkMealPlan">
-                    Meal plan for all rows
-                </label>
-
-                <select id="bulkMealPlan">
-                    <option value="CP">CP — Breakfast</option>
-                    <option value="MAP">MAP — Half Board</option>
-                    <option value="AP">AP — Full Board</option>
-                    <option value="EP">EP — Room Only</option>
-                    <option value="">Not Set</option>
-                </select>
-
-                <button id="btnApplyMealPlan">Apply to All</button>
-
-            </div>
-
-        </div>
-
-        <div class="action-group">
-
-            <div class="action-group-title">Group</div>
-
-            <div class="action-bar">
-
-                <button id="btnSaveGroup" class="primary-action">Save Group</button>
-
-                <button id="btnOpenGroup">Open</button>
-
-                <button id="btnExportJson">JSON</button>
-
-                <button onclick="exportCSV()">CSV</button>
-
-                <button id="btnCheckOutGroup">Check Out Group</button>
-
-                <input
-                    type="file"
-                    id="openGroupFile"
-                    accept=".json"
-                    hidden>
-
-            </div>
-
-        </div>
-
-        <div class="action-group">
-
-            <div class="action-group-title">Print &amp; Checks</div>
-
-            <div class="action-bar">
-
-                <button id="btnPrintRegister">Print</button>
-
-                <button id="btnPrintBlank">Blank</button>
-
-                <button onclick="showValidationReport()">Duplicates</button>
-
-                <button onclick="showMealAnalytics()">Meals</button>
-
-            </div>
-
-        </div>
-
         <div class="action-group toolbar-toggles-group">
 
             <div class="action-group-title">Panels</div>
@@ -627,6 +563,96 @@
         <div class="summary-card">
             <div>AP</div>
             <strong id="summaryAP">0</strong>
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =====================================================
+     PAGE : REGISTER TOOLS
+===================================================== -->
+
+<section id="registerToolsPage" class="page">
+
+    <div class="page-title">
+        <h2>Register Tools</h2>
+    </div>
+
+    <p class="muted-note">
+        Acts on whichever group is currently open in the
+        Arrival Register.
+    </p>
+
+    <div class="action-groups">
+
+        <div class="action-group">
+
+            <div class="action-group-title">Meal Plan</div>
+
+            <div class="action-bar">
+
+                <label class="sr-label" for="bulkMealPlan">
+                    Meal plan for all rows
+                </label>
+
+                <select id="bulkMealPlan">
+                    <option value="CP">CP — Breakfast</option>
+                    <option value="MAP">MAP — Half Board</option>
+                    <option value="AP">AP — Full Board</option>
+                    <option value="EP">EP — Room Only</option>
+                    <option value="">Not Set</option>
+                </select>
+
+                <button id="btnApplyMealPlan">Apply to All</button>
+
+            </div>
+
+        </div>
+
+        <div class="action-group">
+
+            <div class="action-group-title">Group</div>
+
+            <div class="action-bar">
+
+                <button id="btnSaveGroup" class="primary-action">Save Group</button>
+
+                <button id="btnOpenGroup">Open</button>
+
+                <button id="btnExportJson">JSON</button>
+
+                <button onclick="exportCSV()">CSV</button>
+
+                <button id="btnCheckOutGroup">Check Out Group</button>
+
+                <input
+                    type="file"
+                    id="openGroupFile"
+                    accept=".json"
+                    hidden>
+
+            </div>
+
+        </div>
+
+        <div class="action-group">
+
+            <div class="action-group-title">Print &amp; Checks</div>
+
+            <div class="action-bar">
+
+                <button id="btnPrintRegister">Print</button>
+
+                <button id="btnPrintBlank">Blank</button>
+
+                <button onclick="showValidationReport()">Duplicates</button>
+
+                <button onclick="showMealAnalytics()">Meals</button>
+
+            </div>
+
         </div>
 
     </div>

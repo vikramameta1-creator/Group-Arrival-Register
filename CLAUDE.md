@@ -67,7 +67,23 @@ time. Documentation drift is a real failure mode here, same as a stray
 paste — don't let something written once become "true" just because it
 was written before.
 
-## 2.16 A function's exact signature is a real clue, not decoration
+## 2.16 A manual edit you asked the developer to make is still your
+responsibility to track
+If a change gets described as "add this yourself" rather than edited
+directly (because the file wasn't available at the time), the exact same
+change must be applied to the working copy the moment the file does
+become available — not left as a silent gap. A later full-file
+replacement from that stale copy will erase the developer's manual work
+with no warning, even though every anchor-match safety check passes
+cleanly. Those checks only prove the specific text being touched hasn't
+drifted; they say nothing about the rest of the file. This is exactly how
+`reportConflictSummary` got silently deleted by an unrelated, correctly
+verified edit two files later — caught only because the just-updated
+`diagnostics.js` flagged it immediately. Fixed: verify every
+manually-requested change actually landed in the working copy before
+treating that copy as trustworthy for a future full-file delivery.
+
+## 2.17 A function's exact signature is a real clue, not decoration
 `getRoomDepartureDate(group, room)` taking a specific room — not just a
 group — was the tell that per-room departure overrides existed, a full
 session before the file that proved it got reviewed. When a signature

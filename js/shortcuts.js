@@ -106,6 +106,7 @@ function clickIfPresent(id) {
 const SHORTCUT_PAGES = [
     "dashboardPage",
     "arrivalPage",
+    "registerToolsPage",
     "roomingPage",
     "roomMasterPage",
     "reportsPage",
@@ -173,7 +174,7 @@ function showShortcutHelp() {
 
     showAlert(
 
-`Alt + 1 … 6        Switch tab
+`Alt + 1 … 7        Switch tab
 Ctrl + S           Save group
 Ctrl + P           Print register
 Ctrl + Shift + B   Blank register
@@ -183,7 +184,10 @@ Ctrl + D           Check duplicates
 F1  or  ?          This list
 
 Enter              Next row, same column
-Esc                Close a dialog`,
+Esc                Close a dialog
+
+Ctrl+S now opens Register Tools first if the
+Arrival Register isn't the active page.`,
 
         "Keyboard Shortcuts"
     );
@@ -208,7 +212,7 @@ function handleGlobalShortcut(event) {
         event.altKey &&
         !event.ctrlKey &&
         !event.metaKey &&
-        /^[1-6]$/.test(event.key)
+        /^[1-7]$/.test(event.key)
     ) {
 
         event.preventDefault();
@@ -251,9 +255,15 @@ function handleGlobalShortcut(event) {
             return;
         }
 
+        /* Save Group now lives on Register Tools, not
+           the Arrival Register page itself - switch there
+           so the developer actually sees the save happen,
+           rather than switching to a page that no longer
+           has the button on it. */
+
         if (typeof switchPage === "function") {
 
-            switchPage("arrivalPage");
+            switchPage("registerToolsPage");
         }
 
         clickIfPresent("btnSaveGroup");

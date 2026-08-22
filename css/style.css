@@ -169,6 +169,18 @@ body{
     display:block;
 }
 
+/* Reserves room at the bottom of the two pages the
+   floating Save button actually appears on, so scrolled
+   content (the summary cards row) never ends up
+   underneath a fixed-position element. Not a repositioning
+   patch - the button stays put, the page just leaves it
+   room. ~48px button height + 24px offset + margin. */
+
+#arrivalPage,
+#registerToolsPage{
+    padding-bottom:100px;
+}
+
 .page-title h2{
     color:var(--primary);
 }
@@ -1383,6 +1395,82 @@ body{
 
 }
 
+/* =====================================================
+   FLOATING SAVE BUTTON
+
+   Fixed to the viewport, not the page - stays visible on
+   every tab since it lives outside every .page section.
+   Same green as the Save Group button (.primary-action)
+   so it reads as the same action, just always in reach.
+===================================================== */
+
+.floating-save-btn{
+
+    /* Hidden by default - switchPage() is the only thing
+       that turns this on, and it only runs on a tab
+       click, never on initial load. Without this default,
+       the button would incorrectly show on Dashboard (the
+       page loaded before any click has happened) until
+       the first navigation. */
+
+    display:none;
+
+    position:fixed;
+
+    bottom:24px;
+
+    right:24px;
+
+    z-index:9999;
+
+    background:var(--success);
+
+    color:#fff;
+
+    border:none;
+
+    border-radius:999px;
+
+    padding:14px 22px;
+
+    font-size:15px;
+
+    font-weight:700;
+
+    cursor:pointer;
+
+    box-shadow:0 4px 14px rgba(0,0,0,0.25);
+
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+
+}
+
+.floating-save-btn:hover{
+
+    background:#1e7e34;
+
+    transform:translateY(-2px);
+
+    box-shadow:0 6px 18px rgba(0,0,0,0.3);
+
+}
+
+.floating-save-btn:active{
+
+    transform:translateY(0);
+
+}
+
+@media print{
+
+    .floating-save-btn{
+
+        display:none;
+
+    }
+
+}
+
 .register-toolbar input[type="number"]{
 
     width:90px;
@@ -1431,10 +1519,14 @@ body{
 
 .action-groups{
 
+    display:grid;
+
     grid-template-columns:
         repeat(auto-fit,minmax(230px,1fr));
 
     gap:12px;
+
+    align-items:start;
 
 }
 

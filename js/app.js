@@ -39,6 +39,8 @@
    application, at the bottom of this file. diagnostics.js
    adds a second on purpose, delayed, so it can check that
    every module finished booting.
+===================================================== */
+
 /* =====================================================
    UTILITIES
 ===================================================== */
@@ -183,6 +185,29 @@ function switchPage(pageId) {
     ) {
 
         applyRoomMasterLock();
+    }
+
+    /* Floating Save only makes sense where a group is
+       actually being worked on. Showing it everywhere -
+       Settings, Dashboard, Reports - saved nothing
+       meaningful there and just added visual noise. */
+
+    const floatingSave =
+        document.getElementById("floatingSaveBtn");
+
+    if (floatingSave) {
+
+        const showOnThisPage =
+            pageId === "arrivalPage" ||
+            pageId === "registerToolsPage";
+
+        /* CSS default is display:none - "" would just
+           fall back to that default and never actually
+           show the button, so this needs an explicit
+           value to override it. */
+
+        floatingSave.style.display =
+            showOnThisPage ? "inline-block" : "none";
     }
 }
 

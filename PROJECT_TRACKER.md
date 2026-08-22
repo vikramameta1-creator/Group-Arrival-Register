@@ -17,77 +17,71 @@ data, ever.
 
 ---
 
-# 2. MODULE INVENTORY — GENUINELY COMPLETE
+# 2. MODULE INVENTORY — COMPLETE
 
-All 13 modules now directly reviewed, no exceptions remaining.
-
-- **`version.js`** — release identity (`APP_NAME`/`APP_VERSION`/`APP_BUILD`),
-  `EXPECTED_MODULES` manifest (all 13 files, file-level version check),
-  `registerModuleVersion()`, `getVersionReport()`. Loads first, before
-  `dialog.js`.
-- **`diagnostics.js`** — the most thorough file in the project. Checks
-  function existence per module (`MODULE_MANIFEST`), global objects
-  (`DB`, `GroupRepository`, `RoomMasterRepository`,
-  `REGISTER_COLUMNS`, etc.), critical DOM element IDs
-  (`CRITICAL_ELEMENTS`), register header/row column-count consistency,
-  **duplicate `<script>` tag detection**, version mismatches against
-  `version.js`, and localStorage usage — plus a downloadable diagnostic
-  report a hotel can email support instead of reading console output
-  over the phone. Deliberately excludes itself from `MODULE_MANIFEST`'s
-  function-count (a file checking its own existence is circular) — this
-  is why the startup banner correctly reads "12 modules checked," not 13.
-  Not a bug; confirmed by reading the actual code, not inferred.
-
-Everything else — `database.js`, `dialog.js`, `printing.js`,
-`room-master.js`, `register.js`, `dashboard.js`, `reports.js`,
-`report-print.js`, `groups.js`, `app.js`, `shortcuts.js` — reviewed
-previously, all clean, zero function-name collisions across the entire
-project confirmed by direct comparison, not assumption.
+All 13 modules reviewed. See `CLAUDE.md` §4 for the list.
 
 ---
 
-# 3. COMPLETED THIS SESSION
+# 3. COMPLETED LAST SESSION
 
-- **Departure Manifest** (`RPT3`/`RPT3b`/`RPT3c`) — fifth report in
-  `report-print.js`. Filters by per-room departure date via
-  `getRoomDepartureDate()`, respecting checkout overrides. Grouped by
-  group name, matching the Housekeeping sheet's pattern. Dropdown option
-  added permanently. Fully tested including the override-specific
-  behavior.
-- **`diagnostics.js` updated (`DIAG1`)** — `MODULE_MANIFEST` and
-  `CRITICAL_ELEMENTS` extended to cover everything built this session:
-  `showForm`, `getRoomDepartureDate`, `promptMealBreakdown`,
-  `buildNightsInRange`, `buildConflictSummary`, `renderConflictReport`,
-  `exportReportsCSV`, `printDepartureManifest`,
-  `getRoomsForDepartureDate`, `reportConflictSummary`,
-  `appDialogFormWrap`, `appDialogFormFields`. Check logic itself
-  untouched — only what gets checked was extended.
-- **Regression found and fixed, same session.** The newly-updated
-  `diagnostics.js` immediately caught `MISSING ELEMENT
-  #reportConflictSummary` on the very next reload — proof the update
-  works. Root cause: the Overlapping Rooms card had originally been
-  added by the developer manually (the file wasn't available to edit
-  directly at the time), and that change was never synced into the
-  working copy used for later full-file HTML deliveries — so an
-  unrelated, correctly-verified edit (the departure dropdown option)
-  silently overwrote it. Restored. New rule added to `CLAUDE.md` (§2.16):
-  a manually-requested edit has to be synced into the working copy the
-  moment the file becomes available, not left as a gap until the next
-  full-file replacement quietly erases it.
+- **CSS grid fix** — `.action-groups` was missing `display:grid`, silently
+  disabling the whole layout. Fixed.
+- **UI restructure (`UI1`)** — Arrival Register split into two pages: table
+  + Build Register + Panels stay together; Meal Plan, Group, Print & Checks
+  moved to a new **Register Tools** page. Alt+1…7 and Ctrl+S updated to match.
+- **Floating Save button** — built, works correctly for saving from any
+  page, bound to the same `saveCurrentGroup()` the original button uses.
+  Ctrl+S simplified back to saving in place, no longer needs to force a
+  page switch now that the button is visible everywhere.
 
 ---
 
-# 4. KNOWN ISSUES
+# 4. TWO CONFIRMED BUGS, NOT YET FIXED
 
-None. Full module review is complete, every gap found during it —
-including the one caught by this session's own diagnostics update — has
-been resolved and verified.
+Developer tested and confirmed both. Diagnosed, not yet patched — do these
+first next session, before anything else.
+
+1. **Floating Save button shows on every page, shouldn't.** It only ever
+   saves group data, so it has no reason to appear on Settings, Dashboard,
+   Reports, or Room Master. Needs to show only on **Arrival Register** and
+   **Register Tools** — the two pages that actually deal with a group.
+
+2. **Floating Save button visually overlaps the summary cards row**
+   (Total Rooms/Pax/EP/CP/MAP/AP) at the bottom of Arrival Register.
+   Root cause: `position:fixed; bottom:24px; right:24px` anchors the
+   button to the viewport, but nothing reserves space for it in the page
+   content below — so on shorter viewports the summary cards scroll
+   directly underneath it. Fix is bottom padding on the page content
+   (roughly the button's height plus a margin), not a repositioning
+   patch — needs doing properly, not just nudged a few pixels.
 
 ---
 
-# 5. NEXT UP
+# 5. STILL UNCONFIRMED — DO NOT BUILD WITHOUT REVISITING
 
-Nothing currently queued. Full module inventory done, all recent feature
-work (DEP5/5b/5c, Overlapping Rooms, `showForm`, Departure Manifest,
-diagnostics coverage) tested and confirmed working. Bring whatever's next
-whenever ready.
+**Per-group file attachments (reference documents).** Use case confirmed
+as reference-only — booking confirmations, agent emails, viewed
+occasionally, never edited. Proposed plan, **not yet approved**:
+
+- Storage: **IndexedDB**, not localStorage — can actually hold Blobs, far
+  larger quota, no server or Electron needed yet
+- Data shape: `{id, groupId, fileName, fileType, fileSize, uploadedOn, blob}`
+- Location: new panel on **Register Tools**, not Arrival Register
+- Behavior: drag-and-drop, simple list (name/type/size/date), download,
+  delete — no in-app preview, no editing
+- Open question flagged, not resolved: a brand-new unsaved group has no
+  `id` yet — attachments need the group saved at least once first, or a
+  temporary id reconciled on first save
+
+Developer has not said "build it this way" yet. Confirm before writing
+any of this.
+
+---
+
+# 6. NEXT UP, IN ORDER
+
+1. Fix the floating Save button's page-scoping (§4.1)
+2. Fix the floating Save button's overlap with summary cards (§4.2)
+3. Revisit and confirm (or adjust) the attachment feature plan (§5) before
+   building any of it

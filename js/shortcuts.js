@@ -186,8 +186,8 @@ F1  or  ?          This list
 Enter              Next row, same column
 Esc                Close a dialog
 
-Ctrl+S now opens Register Tools first if the
-Arrival Register isn't the active page.`,
+A floating Save button stays visible on every
+page - Ctrl+S uses it, no tab switch needed.`,
 
         "Keyboard Shortcuts"
     );
@@ -255,18 +255,14 @@ function handleGlobalShortcut(event) {
             return;
         }
 
-        /* Save Group now lives on Register Tools, not
-           the Arrival Register page itself - switch there
-           so the developer actually sees the save happen,
-           rather than switching to a page that no longer
-           has the button on it. */
+        /* The floating Save button is visible on every
+           page now, so this no longer needs to switch
+           pages first to prove the save happened - the
+           save flash and the floating button itself are
+           feedback enough regardless of which tab is
+           open. */
 
-        if (typeof switchPage === "function") {
-
-            switchPage("registerToolsPage");
-        }
-
-        clickIfPresent("btnSaveGroup");
+        clickIfPresent("floatingSaveBtn");
 
         return;
     }

@@ -35,7 +35,7 @@ architecturally significant asks
 ## 2.6 Group identity is matched by `id`, never by `groupName`
 
 ## 2.7 Repository and audit-trail patterns are mandatory
-All storage through `GroupRepository` (owned by `database.js` — see 2.15).
+All storage through `GroupRepository` (owned by `database.js`).
 All status changes through `recordAuditEntry()`.
 
 ## 2.8 Dialog system, not native browser dialogs
@@ -54,18 +54,8 @@ the same way file-level changes are.
 ## 2.13 When a bug's root cause isn't 100% certain, fix defensively too
 
 ## 2.14 A "conflict" report claim needs a DOM-scoping check, not a guess
-Verify what each handler is actually attached to before concluding either
-side is at fault.
 
 ## 2.15 Verify a claim against the real file before repeating it again
-This file previously stated `groups.js` owns `GroupRepository`. It
-doesn't — `database.js` does, and always did; the note was wrong,
-carried forward from a stale pre-modularization file and never
-re-checked against the real, current code. The fix wasn't a code change,
-it was re-reading the actual file before writing the claim down a second
-time. Documentation drift is a real failure mode here, same as a stray
-paste — don't let something written once become "true" just because it
-was written before.
 
 ## 2.16 A manual edit you asked the developer to make is still your
 responsibility to track
@@ -84,12 +74,6 @@ manually-requested change actually landed in the working copy before
 treating that copy as trustworthy for a future full-file delivery.
 
 ## 2.17 A function's exact signature is a real clue, not decoration
-`getRoomDepartureDate(group, room)` taking a specific room — not just a
-group — was the tell that per-room departure overrides existed, a full
-session before the file that proved it got reviewed. When a signature
-implies more than the current mental model accounts for, that's worth
-flagging out loud rather than building against the simpler assumption and
-finding out later.
 
 ---
 
@@ -107,14 +91,12 @@ finding out later.
 
 # 4. ARCHITECTURE SUMMARY
 
-All 13 modules reviewed as of this session — see `PROJECT_TRACKER.md` §2
-for the complete, corrected inventory and what each one actually owns.
-Load order: `version.js, dialog.js, database.js, printing.js,
-room-master.js, register.js, dashboard.js, reports.js, report-print.js,
-groups.js, app.js, shortcuts.js, diagnostics.js`.
+All 13 modules reviewed as of the previous session — see `PROJECT_TRACKER.md`
+for current feature status and the open roadmap. Load order:
+`version.js, dialog.js, database.js, printing.js, room-master.js,
+register.js, dashboard.js, reports.js, report-print.js, groups.js, app.js,
+shortcuts.js, diagnostics.js`.
 
 `database.js` loads first by design and is the single file that changes
 when this project eventually moves to SQL — the repository pattern was
 deliberately built with that migration in mind from the start.
-
-See `PROJECT_TRACKER.md` for current feature status and the open roadmap.

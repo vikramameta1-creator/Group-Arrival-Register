@@ -312,6 +312,11 @@ function loadGroupToScreen(group) {
 
     currentGroupId = group.id || null;
 
+    if (typeof resetAttachmentSession === "function") {
+
+        resetAttachmentSession();
+    }
+
     currentGroupNoShowFlag = !!group.noShowFlag;
 
     loadRegisterRows(group.rooms || []);
@@ -524,6 +529,11 @@ async function saveCurrentGroup() {
     }
 
     currentGroupId = group.id;
+
+    if (typeof reconcileAttachmentGroupId === "function") {
+
+        reconcileAttachmentGroupId(group.id);
+    }
 
     refreshApplication();
 
@@ -1134,6 +1144,13 @@ function initializeGroupEvents() {
 
     document
         .getElementById("btnSaveGroup")
+        ?.addEventListener("click", saveCurrentGroup);
+
+    /* Lives outside every .page section - same action,
+       always in reach regardless of which tab is open. */
+
+    document
+        .getElementById("floatingSaveBtn")
         ?.addEventListener("click", saveCurrentGroup);
 
     document

@@ -111,6 +111,14 @@ const MODULE_MANIFEST = {
         "initializeGroupEvents"
     ],
 
+    "attachments.js": [
+        "openAttachmentsDB", "addAttachment",
+        "listAttachments", "deleteAttachment",
+        "downloadAttachment", "reconcileAttachmentGroupId",
+        "getActiveAttachmentGroupId", "resetAttachmentSession",
+        "renderAttachmentsPanel", "initializeAttachmentEvents"
+    ],
+
     "app.js": [
         "initializeApplication", "refreshApplication",
         "refreshApplicationSettings", "saveApplication",
@@ -178,6 +186,8 @@ const CRITICAL_ELEMENTS = [
     "reportArrivalSummary", "reportMealSummary",
     "reportOccupancySummary", "reportCategorySummary",
     "reportConflictSummary",
+    "attachmentDropZone", "attachmentFileInput",
+    "attachmentsList",
     "appVersion",
     "appDialog", "appDialogOk", "appDialogCancel",
     "appDialogInput", "appDialogTitle",

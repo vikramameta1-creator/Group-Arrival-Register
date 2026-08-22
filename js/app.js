@@ -187,15 +187,15 @@ function switchPage(pageId) {
         applyRoomMasterLock();
     }
 
-    /* Floating Save only makes sense where a group is
+    /* Floating actions only make sense where a group is
        actually being worked on. Showing it everywhere -
        Settings, Dashboard, Reports - saved nothing
        meaningful there and just added visual noise. */
 
-    const floatingSave =
-        document.getElementById("floatingSaveBtn");
+    const floatingPanel =
+        document.getElementById("floatingActionPanel");
 
-    if (floatingSave) {
+    if (floatingPanel) {
 
         const showOnThisPage =
             pageId === "arrivalPage" ||
@@ -203,13 +203,158 @@ function switchPage(pageId) {
 
         /* CSS default is display:none - "" would just
            fall back to that default and never actually
-           show the button, so this needs an explicit
-           value to override it. */
+           show the panel, so this needs an explicit
+           value to override it. flex, not inline-block,
+           since the panel arranges three buttons in a row. */
 
-        floatingSave.style.display =
-            showOnThisPage ? "inline-block" : "none";
+        floatingPanel.style.display =
+            showOnThisPage ? "flex" : "none";
+
+        if (showOnThisPage) {
+
+            updateFloatingSavePosition();
+        }
+    }
+
+    if (
+        pageId === "registerToolsPage" &&
+        typeof renderAttachmentsPanel === "function"
+    ) {
+
+        renderAttachmentsPanel();
     }
 }
+
+
+/* =====================================================
+   FLOATING SAVE - COLLISION AVOIDANCE
+
+   A fixed-position button can't know where page content
+   ends up on its own - that depends on how tall the table
+   is, the viewport height, and scroll position, none of
+   which are knowable from CSS alone. Padding-based
+   spacing only helps once the user scrolls past it; it
+   does nothing for the resting, un-scrolled view, which
+   is exactly the case that was still broken. This checks
+   the button's real screen position against the summary
+   cards every time either could have changed, and lifts
+   the button clear if they'd actually overlap - correct
+   regardless of table length or viewport size, rather
+   than a guessed spacing value tuned to one screenshot.
+===================================================== */
+
+function updateFloatingSavePosition() {
+
+    const floatingPanel =
+        document.getElementById("floatingActionPanel");
+
+    if (
+        !floatingPanel ||
+        floatingPanel.style.display === "none"
+    ) {
+
+        return;
+    }
+
+    const activePage =
+        document.querySelector(".page.active-page");
+
+    const summaryGrid =
+        activePage?.querySelector(".summary-grid");
+
+    if (!summaryGrid) {
+
+        floatingPanel.classList.remove(
+            "floating-action-panel-lifted"
+        );
+
+        return;
+    }
+
+    const gridRect =
+        summaryGrid.getBoundingClientRect();
+
+    const viewportHeight =
+        window.innerHeight;
+
+    /* The panel's own resting footprint - roughly its
+       height plus the 24px it sits off the bottom edge,
+       plus a small safety margin. Anything from the cards
+       poking into this zone counts as a collision. */
+
+    const dangerZoneTop = viewportHeight - 90;
+
+    const collides =
+        gridRect.bottom > dangerZoneTop &&
+        gridRect.top < viewportHeight;
+
+    floatingPanel.classList.toggle(
+        "floating-action-panel-lifted",
+        collides
+    );
+}
+
+window.addEventListener(
+    "scroll",
+    updateFloatingSavePosition,
+    { passive: true }
+);
+
+window.addEventListener(
+    "resize",
+    updateFloatingSavePosition
+);
+
+
+/* =====================================================
+   FLOATING ACTION PANEL - PRINT / ATTACHMENTS SHORTCUTS
+
+   Save reuses the existing btnSaveGroup wiring in
+   groups.js untouched. These two are new: quick access to
+   the two other things Register Tools holds, without
+   requiring the tab to be found and clicked first.
+===================================================== */
+
+function initializeFloatingActionPanel() {
+
+    document
+        .getElementById("floatingPrintBtn")
+        ?.addEventListener("click", function () {
+
+            if (typeof printRegister === "function") {
+
+                printRegister();
+            }
+
+        });
+
+    document
+        .getElementById("floatingAttachBtn")
+        ?.addEventListener("click", function () {
+
+            if (typeof switchPage === "function") {
+
+                switchPage("registerToolsPage");
+            }
+
+            const panel =
+                document.querySelector(".attachments-panel");
+
+            if (panel) {
+
+                panel.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start"
+                });
+            }
+
+        });
+}
+
+document.addEventListener(
+    "DOMContentLoaded",
+    initializeFloatingActionPanel
+);
 
 
 /* =====================================================

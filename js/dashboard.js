@@ -366,7 +366,10 @@ function renderSavedGroups() {
                 "beforeend",
 
                 `
-<tr>
+<tr
+    class="saved-group-row"
+    ondblclick="openSavedGroup(${entry.realIndex})"
+    title="Double-click to open">
 
     <td>${group.groupName || ""}</td>
 

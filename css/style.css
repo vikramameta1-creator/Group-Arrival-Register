@@ -1396,20 +1396,26 @@ body{
 }
 
 /* =====================================================
-   FLOATING SAVE BUTTON
+   FLOATING ACTION PANEL
 
    Fixed to the viewport, not the page - stays visible on
-   every tab since it lives outside every .page section.
-   Same green as the Save Group button (.primary-action)
-   so it reads as the same action, just always in reach.
+   Arrival Register and Register Tools since it lives
+   outside every .page section. Save is the primary,
+   full-size action (same green as .primary-action so it
+   reads as the same action, just always in reach). Print
+   and Attachments are smaller icon-only shortcuts that
+   jump straight to what they need on Register Tools
+   without requiring the tab to be found and clicked
+   first - the whole point is fewer trips across pages
+   for routine things.
 ===================================================== */
 
-.floating-save-btn{
+.floating-action-panel{
 
     /* Hidden by default - switchPage() is the only thing
        that turns this on, and it only runs on a tab
        click, never on initial load. Without this default,
-       the button would incorrectly show on Dashboard (the
+       the panel would incorrectly show on Dashboard (the
        page loaded before any click has happened) until
        the first navigation. */
 
@@ -1423,19 +1429,15 @@ body{
 
     z-index:9999;
 
-    background:var(--success);
+    align-items:center;
 
-    color:#fff;
+    gap:10px;
+
+}
+
+.floating-action-btn{
 
     border:none;
-
-    border-radius:999px;
-
-    padding:14px 22px;
-
-    font-size:15px;
-
-    font-weight:700;
 
     cursor:pointer;
 
@@ -1445,9 +1447,7 @@ body{
 
 }
 
-.floating-save-btn:hover{
-
-    background:#1e7e34;
+.floating-action-btn:hover{
 
     transform:translateY(-2px);
 
@@ -1455,15 +1455,195 @@ body{
 
 }
 
-.floating-save-btn:active{
+.floating-action-btn:active{
 
     transform:translateY(0);
 
 }
 
+.floating-action-primary{
+
+    background:var(--success);
+
+    color:#fff;
+
+    border-radius:999px;
+
+    padding:14px 22px;
+
+    font-size:15px;
+
+    font-weight:700;
+
+}
+
+.floating-action-primary:hover{
+
+    background:#1e7e34;
+
+}
+
+.floating-action-secondary{
+
+    background:var(--primary);
+
+    color:#fff;
+
+    border-radius:50%;
+
+    width:44px;
+
+    height:44px;
+
+    font-size:18px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+}
+
+.floating-action-secondary:hover{
+
+    background:var(--primary-dark);
+
+}
+
+.floating-action-panel-lifted{
+
+    /* Real collision detected in app.js - lifts clear of
+       the summary cards regardless of why they ended up
+       this close (short page, no scroll needed, whatever
+       the cause). Enough clearance for a typical card row
+       plus margin. */
+
+    bottom:130px;
+
+}
+
+/* =====================================================
+   ATTACHMENTS PANEL
+
+   Register Tools page - reference documents only, per
+   group. See js/attachments.js.
+===================================================== */
+
+.attachments-panel{
+
+    margin-top:20px;
+
+    background:var(--panel-bg, #fff);
+
+    border:1px solid var(--border);
+
+    border-radius:10px;
+
+    padding:16px 20px;
+
+}
+
+.attachment-drop-zone{
+
+    border:2px dashed var(--border);
+
+    border-radius:10px;
+
+    padding:30px 20px;
+
+    text-align:center;
+
+    cursor:pointer;
+
+    color:var(--text-muted, #666);
+
+    margin:12px 0;
+
+    transition:background 0.15s ease, border-color 0.15s ease;
+
+}
+
+.attachment-drop-zone:hover,
+.attachment-drop-zone.drag-active{
+
+    background:rgba(0,0,0,0.03);
+
+    border-color:var(--primary);
+
+}
+
+.attachment-drop-icon{
+
+    display:block;
+
+    font-size:28px;
+
+    margin-bottom:6px;
+
+}
+
+.attachments-list{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:8px;
+
+    margin-top:12px;
+
+}
+
+.attachment-row{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:10px;
+
+    padding:8px 10px;
+
+    border:1px solid var(--border);
+
+    border-radius:8px;
+
+}
+
+.attachment-icon{
+
+    font-size:18px;
+
+}
+
+.attachment-name{
+
+    flex:1;
+
+    font-weight:600;
+
+    overflow:hidden;
+
+    text-overflow:ellipsis;
+
+    white-space:nowrap;
+
+}
+
+.attachment-meta{
+
+    font-size:12px;
+
+    color:var(--text-muted, #666);
+
+    white-space:nowrap;
+
+}
+
 @media print{
 
-    .floating-save-btn{
+    .floating-action-panel{
 
         display:none;
 

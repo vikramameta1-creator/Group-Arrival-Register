@@ -1086,6 +1086,11 @@ async function clearRegister() {
 
         resetCurrentGroupIdentity();
     }
+
+    if (typeof resetAttachmentSession === "function") {
+
+        resetAttachmentSession();
+    }
 }
 /* =====================================================
    EMPTY ROW RULE
@@ -1155,6 +1160,16 @@ function updateSummary() {
     setSummaryValue("summaryCP",    cp);
     setSummaryValue("summaryMAP",   map);
     setSummaryValue("summaryAP",    ap);
+
+    /* Adding or clearing rows changes the table's height,
+       which moves where the summary cards land on the
+       page - closes the one gap the scroll/resize
+       listeners in app.js can't catch on their own. */
+
+    if (typeof updateFloatingSavePosition === "function") {
+
+        updateFloatingSavePosition();
+    }
 }
 
 function setSummaryValue(id, value) {

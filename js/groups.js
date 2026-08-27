@@ -545,6 +545,285 @@ async function saveCurrentGroup() {
    OPEN SAVED GROUP
 ===================================================== */
 
+/* =====================================================
+   FILTER SAVED GROUPS
+
+   Shared by the Dashboard Saved Groups table and the
+   quick-open search modal, so both filter exactly the
+   same way instead of drifting into two slightly
+   different behaviors over time. Returns {group,
+   realIndex} pairs - realIndex is the group's REAL
+   position in DB.groups, which openSavedGroup() and
+   deleteSavedGroup() require. Passing a filtered/sorted
+   position instead of the real one has caused a wrong
+   group being deleted before - never pass anything else.
+===================================================== */
+
+function filterSavedGroups(criteria) {
+
+    criteria = criteria || {};
+
+    const search =
+        (criteria.search || "").trim().toLowerCase();
+
+    const status = criteria.status || "";
+
+    const dateFrom = criteria.dateFrom || "";
+
+    const dateTo = criteria.dateTo || "";
+
+    const agent =
+        (criteria.agent || "").trim().toLowerCase();
+
+    return DB.groups
+
+        .map((group, realIndex) => ({ group, realIndex }))
+
+        .filter(entry => {
+
+            const group = entry.group;
+
+            if (
+                search &&
+                !(group.groupName || "")
+                    .toLowerCase()
+                    .includes(search)
+            ) {
+
+                return false;
+            }
+
+            if (status && group.status !== status) {
+
+                return false;
+            }
+
+            if (
+                dateFrom &&
+                (group.arrivalDate || "") < dateFrom
+            ) {
+
+                return false;
+            }
+
+            if (
+                dateTo &&
+                (group.arrivalDate || "") > dateTo
+            ) {
+
+                return false;
+            }
+
+            if (
+                agent &&
+                !(group.agent || "")
+                    .toLowerCase()
+                    .includes(agent)
+            ) {
+
+                return false;
+            }
+
+            return true;
+
+        })
+
+        .sort((a, b) =>
+            (b.group.modifiedOn || "").localeCompare(
+                a.group.modifiedOn || ""
+            )
+        );
+}
+
+
+/* =====================================================
+   QUICK OPEN GROUP MODAL
+
+   Reachable from the floating action panel on Arrival
+   Register and Register Tools - opens a saved group
+   without a trip to Dashboard first.
+===================================================== */
+
+function readGroupSearchModalCriteria() {
+
+    return {
+
+        search:
+            document.getElementById("groupSearchModalInput")
+                ?.value || "",
+
+        status:
+            document.getElementById("groupSearchModalStatus")
+                ?.value || "",
+
+        dateFrom:
+            document.getElementById("groupSearchModalDateFrom")
+                ?.value || "",
+
+        dateTo:
+            document.getElementById("groupSearchModalDateTo")
+                ?.value || "",
+
+        agent:
+            document.getElementById("groupSearchModalAgent")
+                ?.value || ""
+
+    };
+}
+
+
+function renderGroupSearchModalResults() {
+
+    const list =
+        document.getElementById("groupSearchModalResults");
+
+    if (!list) return;
+
+    const entries =
+        filterSavedGroups(readGroupSearchModalCriteria());
+
+    if (entries.length === 0) {
+
+        list.innerHTML =
+            "<p class='muted-note'>No matching groups.</p>";
+
+        return;
+    }
+
+    list.innerHTML = "";
+
+    entries.forEach(entry => {
+
+        const group = entry.group;
+
+        const row =
+            document.createElement("div");
+
+        row.className = "group-search-result-row";
+
+        row.innerHTML =
+            '<span class="group-search-result-name">' +
+            (group.groupName || "Unnamed Group") +
+            '</span>' +
+            '<span class="group-search-result-meta">' +
+            (group.arrivalDate || "-") + ' · ' +
+            (group.status || "Pending") + ' · ' +
+            (group.totalRooms || 0) + ' rooms' +
+            '</span>';
+
+        row.addEventListener("click", function () {
+
+            closeGroupSearchModal();
+
+            openSavedGroup(entry.realIndex);
+
+        });
+
+        list.appendChild(row);
+
+    });
+
+}
+
+
+function openGroupSearchModal() {
+
+    const overlay =
+        document.getElementById("groupSearchModal");
+
+    if (!overlay) return;
+
+    overlay.style.display = "flex";
+
+    renderGroupSearchModalResults();
+
+    document
+        .getElementById("groupSearchModalInput")
+        ?.focus();
+
+}
+
+
+function closeGroupSearchModal() {
+
+    const overlay =
+        document.getElementById("groupSearchModal");
+
+    if (overlay) {
+
+        overlay.style.display = "none";
+    }
+
+}
+
+
+function initializeGroupSearchModal() {
+
+    document
+        .getElementById("floatingFindGroupBtn")
+        ?.addEventListener("click", openGroupSearchModal);
+
+    document
+        .getElementById("btnCloseGroupSearchModal")
+        ?.addEventListener("click", closeGroupSearchModal);
+
+    document
+        .getElementById("groupSearchModal")
+        ?.addEventListener("click", function (event) {
+
+            if (event.target === this) {
+
+                closeGroupSearchModal();
+            }
+
+        });
+
+    [
+        "groupSearchModalInput",
+        "groupSearchModalStatus",
+        "groupSearchModalDateFrom",
+        "groupSearchModalDateTo",
+        "groupSearchModalAgent"
+    ].forEach(id => {
+
+        document
+            .getElementById(id)
+            ?.addEventListener(
+                "input",
+                renderGroupSearchModalResults
+            );
+
+        document
+            .getElementById(id)
+            ?.addEventListener(
+                "change",
+                renderGroupSearchModalResults
+            );
+
+    });
+
+    document.addEventListener("keydown", function (event) {
+
+        if (event.key !== "Escape") return;
+
+        const overlay =
+            document.getElementById("groupSearchModal");
+
+        if (overlay?.style.display === "flex") {
+
+            closeGroupSearchModal();
+        }
+
+    });
+
+}
+
+document.addEventListener(
+    "DOMContentLoaded",
+    initializeGroupSearchModal
+);
+
+
 function openSavedGroup(index) {
 
     const group = GroupRepository.get(index);

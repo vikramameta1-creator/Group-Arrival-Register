@@ -108,7 +108,8 @@ const MODULE_MANIFEST = {
         "autoSaveCurrentWork", "scheduleAutoSave",
         "restoreDraft", "toggleDraftBanner",
         "keepDraft", "discardDraft",
-        "initializeGroupEvents"
+        "initializeGroupEvents", "filterSavedGroups",
+        "openGroupSearchModal", "closeGroupSearchModal"
     ],
 
     "attachments.js": [
@@ -188,6 +189,11 @@ const CRITICAL_ELEMENTS = [
     "reportConflictSummary",
     "attachmentDropZone", "attachmentFileInput",
     "attachmentsList",
+    "groupSearchModal", "groupSearchModalInput",
+    "groupSearchModalResults",
+    "savedGroupsStatus", "savedGroupsDateFrom",
+    "savedGroupsDateTo", "savedGroupsAgent",
+    "floatingFindGroupBtn",
     "appVersion",
     "appDialog", "appDialogOk", "appDialogCancel",
     "appDialogInput", "appDialogTitle",

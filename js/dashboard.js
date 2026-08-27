@@ -328,35 +328,47 @@ function renderSavedGroups() {
 
     if (!body) return;
 
-    const search =
-        (
-            document.getElementById(
-                "groupSearch"
-            )?.value || ""
-        )
-        .trim()
-        .toLowerCase();
-
     body.innerHTML = "";
 
-    /* ---------- Keep The Real Database Index ---------- */
+    /* Uses the same filterSavedGroups() the quick-open
+       modal uses (groups.js) - one filtering behavior,
+       not two that can drift apart. Falls back to a
+       plain, unfiltered list if groups.js hasn't loaded
+       for some reason, rather than showing nothing. */
+
+    const criteria = {
+
+        search:
+            document.getElementById("groupSearch")
+                ?.value || "",
+
+        status:
+            document.getElementById("savedGroupsStatus")
+                ?.value || "",
+
+        dateFrom:
+            document.getElementById("savedGroupsDateFrom")
+                ?.value || "",
+
+        dateTo:
+            document.getElementById("savedGroupsDateTo")
+                ?.value || "",
+
+        agent:
+            document.getElementById("savedGroupsAgent")
+                ?.value || ""
+
+    };
 
     const entries =
-        DB.groups.map((group, realIndex) => ({
-            group,
-            realIndex
-        }));
+        typeof filterSavedGroups === "function"
+            ? filterSavedGroups(criteria)
+            : DB.groups.map((group, realIndex) => ({
+                  group,
+                  realIndex
+              }));
 
     entries
-        .filter(entry =>
-            (entry.group.groupName || "")
-            .toLowerCase()
-            .includes(search)
-        )
-        .sort((a, b) =>
-            (b.group.modifiedOn || "")
-            .localeCompare(a.group.modifiedOn || "")
-        )
         .forEach(entry => {
 
             const group = entry.group;
@@ -448,4 +460,44 @@ function refreshEntireDashboard() {
     renderSavedGroups();
 
 }
+
+
+/* =====================================================
+   SAVED GROUPS FILTER WIRING
+
+   groupSearch existed before but was never actually wired
+   to re-render live - it only updated whenever
+   renderSavedGroups() happened to run for some other
+   reason. All five filters (search plus the four new
+   ones) now behave consistently.
+===================================================== */
+
+function initializeSavedGroupsFilters() {
+
+    [
+        "groupSearch",
+        "savedGroupsStatus",
+        "savedGroupsDateFrom",
+        "savedGroupsDateTo",
+        "savedGroupsAgent"
+    ].forEach(id => {
+
+        const el = document.getElementById(id);
+
+        if (!el) return;
+
+        el.addEventListener("input", renderSavedGroups);
+
+        el.addEventListener("change", renderSavedGroups);
+
+    });
+
+}
+
+document.addEventListener(
+    "DOMContentLoaded",
+    initializeSavedGroupsFilters
+);
+
+
 registerModuleVersion("dashboard.js", "1.0.0");

@@ -284,6 +284,31 @@
                 id="groupSearch"
                 placeholder="🔍  Search group name...">
 
+            <select id="savedGroupsStatus" title="Filter by status">
+                <option value="">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="Arrived">Arrived</option>
+                <option value="Checked In">Checked In</option>
+                <option value="Checked Out">Checked Out</option>
+                <option value="Cancelled">Cancelled</option>
+            </select>
+
+            <input
+                type="date"
+                id="savedGroupsDateFrom"
+                title="Arrival from">
+
+            <input
+                type="date"
+                id="savedGroupsDateTo"
+                title="Arrival to">
+
+            <input
+                type="text"
+                id="savedGroupsAgent"
+                placeholder="Agent / Company">
+
         </div>
 
         <div class="table-container">
@@ -1380,6 +1405,79 @@
 
 
 <!-- =====================================================
+     QUICK OPEN GROUP MODAL
+     Reachable from the floating action panel on Arrival
+     Register and Register Tools. Same filtering as
+     Dashboard's Saved Groups table (filterSavedGroups()
+     in groups.js), so results match either way you
+     choose to look.
+===================================================== -->
+
+<div id="groupSearchModal" class="group-search-modal-overlay" style="display:none;">
+
+    <div class="group-search-modal-box">
+
+        <div class="group-search-modal-header">
+
+            <h3>Open a Saved Group</h3>
+
+            <button
+                id="btnCloseGroupSearchModal"
+                class="modal-close-btn"
+                title="Close">
+
+                ✕
+
+            </button>
+
+        </div>
+
+        <div class="group-search-modal-filters">
+
+            <input
+                type="text"
+                id="groupSearchModalInput"
+                placeholder="🔍  Search group name...">
+
+            <select id="groupSearchModalStatus">
+                <option value="">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="Arrived">Arrived</option>
+                <option value="Checked In">Checked In</option>
+                <option value="Checked Out">Checked Out</option>
+                <option value="Cancelled">Cancelled</option>
+            </select>
+
+            <input
+                type="date"
+                id="groupSearchModalDateFrom"
+                title="Arrival from">
+
+            <input
+                type="date"
+                id="groupSearchModalDateTo"
+                title="Arrival to">
+
+            <input
+                type="text"
+                id="groupSearchModalAgent"
+                placeholder="Agent / Company">
+
+        </div>
+
+        <div id="groupSearchModalResults" class="group-search-modal-results">
+
+            <p class="muted-note">No matching groups.</p>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =====================================================
      FLOATING ACTION PANEL
      Lives outside every .page section on purpose - page
      switching only toggles .active-page on .page elements,
@@ -1392,6 +1490,15 @@
 ===================================================== -->
 
 <div id="floatingActionPanel" class="floating-action-panel">
+
+    <button
+        id="floatingFindGroupBtn"
+        class="floating-action-btn floating-action-secondary"
+        title="Open a Saved Group">
+
+        🔍
+
+    </button>
 
     <button
         id="floatingAttachBtn"

@@ -451,6 +451,21 @@ function recordConflictOverrides(group, conflicts, pinVerified) {
 
 async function saveCurrentGroup() {
 
+    /* Sorting happens here, once, right before the room
+       order gets read into the data that's actually
+       saved - not on every individual checkbox click
+       (register.js, checkOutRoom()). This is the one
+       point where re-sorting genuinely helps rather than
+       disrupting an in-progress sequence of clicks: the
+       developer has finished making changes and is about
+       to save, so settling checked-out rooms to the
+       bottom now is exactly the right moment for it. */
+
+    if (typeof sortCheckedOutRoomsToBottom === "function") {
+
+        sortCheckedOutRoomsToBottom();
+    }
+
     const group = getCurrentGroupData();
 
     if (!group.groupName) {

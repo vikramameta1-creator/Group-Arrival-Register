@@ -172,6 +172,18 @@ function createRowHTML(
 
             </label>
 
+            <br>
+
+            <label class="focRoomToggle">
+
+                <input
+                    type="checkbox"
+                    class="focRoom">
+
+                FOC / Tour Guide
+
+            </label>
+
         </td>
 
     </tr>
@@ -271,6 +283,15 @@ function getRegisterRows() {
 
             checkedOut:
                 row.querySelector(".roomCheckedOut")
+                ?.checked || false,
+
+            /* FOC / Tour Guide - reference flag only. Still
+               counts in Total Rooms and Total Pax, same as
+               any other room; nothing downstream excludes
+               it from any calculation. */
+
+            foc:
+                row.querySelector(".focRoom")
                 ?.checked || false
 
         });
@@ -362,6 +383,19 @@ function loadRegisterRows(rows = []) {
             );
         }
 
+        const focBox =
+            currentRow.querySelector(".focRoom");
+
+        if (focBox) {
+
+            focBox.checked = !!row.foc;
+
+            currentRow.classList.toggle(
+                "row-foc",
+                !!row.foc
+            );
+        }
+
     });
 
     sortCheckedOutRoomsToBottom();
@@ -427,7 +461,18 @@ function checkOutRoom(roomElement, checkedOut) {
 
     updateGroupCheckoutStatus();
 
-    sortCheckedOutRoomsToBottom();
+    /* Deliberately NOT sorting here. Re-sorting the whole
+       table on every single checkbox click moves rows out
+       from under the mouse mid-sequence - check one room,
+       the table reshuffles, and the very next click lands
+       on whatever room slid into that same screen position
+       instead of the one actually intended. That's what
+       "checking one room checks a different one too" was.
+       Sorting still happens - just once, when the group is
+       actually saved (saveCurrentGroup(), groups.js), not
+       after every individual toggle. checkOutEntireGroup()
+       already follows this same one-sort-per-batch pattern
+       correctly, a few lines below this function. */
 
     refreshRegisterViews();
 

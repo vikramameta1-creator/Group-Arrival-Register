@@ -173,6 +173,7 @@ function summariseRooms(rooms) {
         adults:   0,
         children: 0,
         vip:      0,
+        foc:      0,
         EP: 0, CP: 0, MAP: 0, AP: 0, NONE: 0
 
     };
@@ -190,6 +191,8 @@ function summariseRooms(rooms) {
         totals.adults += Math.max(pax - children, 0);
 
         if (room.vip) totals.vip++;
+
+        if (room.foc) totals.foc++;
 
         const meal = (room.meal || "").toUpperCase();
 
@@ -379,7 +382,7 @@ function printArrivalManifest() {
 
     const grand = {
         rooms: 0, pax: 0, adults: 0, children: 0, vip: 0,
-        EP: 0, CP: 0, MAP: 0, AP: 0
+        foc: 0, EP: 0, CP: 0, MAP: 0, AP: 0
     };
 
     let rows = "";
@@ -410,6 +413,7 @@ function printArrivalManifest() {
             <td>${totals.MAP || ""}</td>
             <td>${totals.AP || ""}</td>
             <td>${totals.vip || ""}</td>
+            <td>${totals.foc || ""}</td>
         </tr>
         `;
 
@@ -436,6 +440,7 @@ ${buildReportHeader(title, "Arrivals on " + date)}
             <th>MAP</th>
             <th>AP</th>
             <th>VIP</th>
+            <th>FOC</th>
         </tr>
     </thead>
 
@@ -453,6 +458,7 @@ ${buildReportHeader(title, "Arrivals on " + date)}
             <td>${grand.MAP}</td>
             <td>${grand.AP}</td>
             <td>${grand.vip}</td>
+            <td>${grand.foc}</td>
         </tr>
     </tfoot>
 
@@ -528,6 +534,7 @@ function printHousekeepingSheet() {
                 pax:      Number(room.pax) || 0,
                 children: Number(room.children) || 0,
                 vip:      !!room.vip,
+                foc:      !!room.foc,
                 request:  room.specialRequest || ""
             });
 
@@ -567,6 +574,7 @@ function printHousekeepingSheet() {
     let body = "";
 
     let vipTotal = 0;
+    let focTotal = 0;
     let requestTotal = 0;
 
     Object.keys(byCategory).sort().forEach(category => {
@@ -603,6 +611,8 @@ function printHousekeepingSheet() {
 
             if (entry.vip) vipTotal++;
 
+            if (entry.foc) focTotal++;
+
             if (entry.request) requestTotal++;
 
             body += `
@@ -613,6 +623,7 @@ function printHousekeepingSheet() {
                 <td>${entry.pax}</td>
                 <td>${entry.children || ""}</td>
                 <td>${entry.vip ? "VIP" : ""}</td>
+                <td>${entry.foc ? "FOC" : ""}</td>
                 <td>${reportPrintEscape(entry.request)}</td>
             </tr>
             `;
@@ -635,6 +646,7 @@ ${buildReportHeader(title, "Arrivals on " + date)}
             <th>Pax</th>
             <th>Chd</th>
             <th>VIP</th>
+            <th>FOC</th>
             <th>Special Request</th>
         </tr>
     </thead>
@@ -648,12 +660,14 @@ ${buildReportHeader(title, "Arrivals on " + date)}
         <td class="label">Rooms</td>
         <td class="label">Guests</td>
         <td class="label">VIP Rooms</td>
+        <td class="label">FOC Rooms</td>
         <td class="label">Special Requests</td>
     </tr>
     <tr>
         <td>${entries.length}</td>
         <td>${entries.reduce((t, e) => t + e.pax, 0)}</td>
         <td>${vipTotal}</td>
+        <td>${focTotal}</td>
         <td>${requestTotal}</td>
     </tr>
 </table>
@@ -688,7 +702,11 @@ table.doc-table td:nth-child(6){ width:6%;  text-align:center;
                                  font-weight:bold; }
 
 table.doc-table th:nth-child(7),
-table.doc-table td:nth-child(7){ width:34%; }
+table.doc-table td:nth-child(7){ width:6%;  text-align:center;
+                                 font-weight:bold; }
+
+table.doc-table th:nth-child(8),
+table.doc-table td:nth-child(8){ width:28%; }
 
 table.doc-table td{ height:24px; }
 
@@ -1155,6 +1173,7 @@ ${buildReportHeader(title, period)}
         <td class="label">Adults</td>
         <td class="label">Children</td>
         <td class="label">VIP</td>
+        <td class="label">FOC</td>
         <td class="label">Avg Pax / Room</td>
     </tr>
     <tr>
@@ -1164,6 +1183,7 @@ ${buildReportHeader(title, period)}
         <td>${grand.adults}</td>
         <td>${grand.children}</td>
         <td>${grand.vip}</td>
+        <td>${grand.foc}</td>
         <td>${
             grand.rooms > 0
                 ? (grand.pax / grand.rooms).toFixed(2)
@@ -1402,7 +1422,11 @@ function printDepartureManifest() {
 
     let totalPax = 0;
 
+    let totalChildren = 0;
+
     let departedCount = 0;
+
+    let focCount = 0;
 
     let srCounter = 0;
 
@@ -1432,21 +1456,28 @@ function printDepartureManifest() {
 
             const pax = Number(room.pax) || 0;
 
+            const children = Number(room.children) || 0;
+
             totalPax += pax;
+
+            totalChildren += children;
 
             srCounter++;
 
             if (room.checkedOut) departedCount++;
+
+            if (room.foc) focCount++;
 
             body += `
             <tr>
                 <td>${srCounter}</td>
                 <td>${reportPrintEscape(room.roomNo)}</td>
                 <td>${reportPrintEscape(room.guestName)}</td>
-                <td>${pax}</td>
+                <td>${pax}${children > 0 ? " (" + children + "C)" : ""}</td>
                 <td>${reportPrintEscape(room.mobile) || "&nbsp;"}</td>
                 <td>${room.meal ? reportPrintEscape(room.meal) : ""}</td>
                 <td>${room.vip ? "VIP" : ""}</td>
+                <td>${room.foc ? "FOC" : ""}</td>
                 <td>${room.checkedOut ? "✓" : ""}</td>
             </tr>
             `;
@@ -1470,6 +1501,7 @@ ${buildReportHeader(title, "Departures on " + date)}
             <th>Mobile</th>
             <th>Meal</th>
             <th>VIP</th>
+            <th>FOC</th>
             <th>Departed</th>
         </tr>
     </thead>
@@ -1478,10 +1510,14 @@ ${buildReportHeader(title, "Departures on " + date)}
 
     <tfoot>
         <tr class="total-row">
-            <td colspan="3">TOTAL — ${entries.length} room(s)</td>
+            <td colspan="3">
+                TOTAL — ${entries.length} room(s),
+                ${totalChildren} child(ren)
+            </td>
             <td>${totalPax}</td>
-            <td colspan="4">
+            <td colspan="5">
                 ${departedCount} of ${entries.length} already checked out
+                &nbsp;·&nbsp; ${focCount} FOC
             </td>
         </tr>
     </tfoot>

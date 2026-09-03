@@ -84,6 +84,107 @@ const RATE_MEAL_PLANS = ["EP", "CP", "MAP", "AP"];
    STRUCTURE GUARD
 ===================================================== */
 
+/* =====================================================
+   SEASONAL RATE MIGRATION
+
+   One period used to hold a single meal plan (.mealPlan,
+   .rate); now one period holds all four together (.rates,
+   an object). Runs on every ensureRoomMaster() call, same
+   as the occupancy-rule reconciliation below it - old-
+   shape entries are converted rather than left to crash
+   the render the first time a blank .rates gets read.
+
+   A single old entry becomes one new period with its one
+   known rate filled in and the other three plans left
+   null ("no seasonal override, use the standing rate").
+   Multiple old entries that shared the same category,
+   occupancy, and date range (added one meal plan at a
+   time, back when that was the only way) are merged back
+   into the single period they always conceptually were,
+   rather than left as separate periods that would now
+   incorrectly fail the new overlap check against each
+   other.
+===================================================== */
+
+function migrateSeasonalRatePeriods(periods) {
+
+    const merged = {};
+
+    (periods || []).forEach(period => {
+
+        const hasNewShape =
+            period.rates &&
+            typeof period.rates === "object";
+
+        const rates = {};
+
+        RATE_MEAL_PLANS.forEach(plan => {
+
+            rates[plan] =
+                hasNewShape
+                    ? (
+                        plan in period.rates
+                            ? period.rates[plan]
+                            : null
+                      )
+                    : (
+                        period.mealPlan === plan
+                            ? (Number(period.rate) || 0)
+                            : null
+                      );
+
+        });
+
+        const key =
+            period.category + "|" +
+            Number(period.occupancy) + "|" +
+            period.dateFrom + "|" +
+            period.dateTo;
+
+        if (!merged[key]) {
+
+            merged[key] = {
+
+                id:
+                    period.id ||
+                    "SR-" + Date.now() + "-" +
+                    Math.floor(Math.random() * 1000),
+
+                category:  period.category,
+                occupancy: Number(period.occupancy),
+                dateFrom:  period.dateFrom,
+                dateTo:    period.dateTo,
+                rates:     rates
+
+            };
+
+        } else {
+
+            /* A second old entry for the same period -
+               fold its one known rate in alongside
+               whatever the first entry already had,
+               rather than overwriting or creating a
+               duplicate. */
+
+            RATE_MEAL_PLANS.forEach(plan => {
+
+                if (
+                    rates[plan] !== null &&
+                    merged[key].rates[plan] === null
+                ) {
+
+                    merged[key].rates[plan] = rates[plan];
+                }
+
+            });
+        }
+
+    });
+
+    return Object.keys(merged).map(key => merged[key]);
+}
+
+
 function ensureRoomMaster() {
 
     if (!DB.roomMaster) {
@@ -95,7 +196,8 @@ function ensureRoomMaster() {
             rates: {},
             rateCurrency: DEFAULT_RATE_CURRENCY,
             agents: [],
-            agentRates: {}
+            agentRates: {},
+            agentSeasonalRates: {}
         };
     }
 
@@ -148,6 +250,14 @@ function ensureRoomMaster() {
         master.agentRates = {};
     }
 
+    if (
+        !master.agentSeasonalRates ||
+        typeof master.agentSeasonalRates !== "object"
+    ) {
+
+        master.agentSeasonalRates = {};
+    }
+
     /* Agent rate cards stay deliberately SPARSE, unlike
        category rates above. An agent with no entry for a
        given category/occupancy/meal-plan combination is
@@ -166,6 +276,16 @@ function ensureRoomMaster() {
 
             master.agentRates[name] = {};
         }
+
+        if (!Array.isArray(master.agentSeasonalRates[name])) {
+
+            master.agentSeasonalRates[name] = [];
+        }
+
+        master.agentSeasonalRates[name] =
+            migrateSeasonalRatePeriods(
+                master.agentSeasonalRates[name]
+            );
 
     });
 
@@ -690,6 +810,11 @@ const RoomMasterRepository = {
 
         delete master.agentRates[oldName];
 
+        master.agentSeasonalRates[clean] =
+            master.agentSeasonalRates[oldName] || [];
+
+        delete master.agentSeasonalRates[oldName];
+
         saveDatabase();
 
         return true;
@@ -708,6 +833,8 @@ const RoomMasterRepository = {
         master.agents.splice(index, 1);
 
         delete master.agentRates[name];
+
+        delete master.agentSeasonalRates[name];
 
         saveDatabase();
 
@@ -817,6 +944,204 @@ const RoomMasterRepository = {
         saveDatabase();
 
         return true;
+
+    },
+
+    /* ---------- Agent Seasonal Rates ----------
+
+       A flat list per agent, not nested under category the
+       way the standing rates are - each entry carries its
+       own category/occupancy/mealPlan tag, which makes this
+       a simple add/list/delete table rather than requiring
+       every cell in the standing-rate grid to hold multiple
+       date ranges. Checked BEFORE the standing agent rate:
+       a matching season wins, no match falls through to the
+       standing rate exactly as before this existed. */
+
+    getSeasonalRates(agent) {
+
+        const master = ensureRoomMaster();
+
+        return (master.agentSeasonalRates[agent] || [])
+            .slice();
+
+    },
+
+    /* Matches on category, occupancy, and date only - one
+       period now covers all four meal plans, not one
+       period per meal plan, so meal plan is never part of
+       finding WHICH period applies. Once a period is
+       found, its own per-meal-plan rate can still be blank
+       (null) meaning "no seasonal override for this
+       specific plan, fall through to the agent's standing
+       rate for it" - mirrors exactly how the standing
+       agent card already treats a blank cell as "use the
+       category default" rather than "free." */
+
+    findSeasonalPeriod(agent, category, occupancy, date) {
+
+        const periods =
+            this.getSeasonalRates(agent);
+
+        return periods.find(period =>
+            period.category === category &&
+            Number(period.occupancy) === Number(occupancy) &&
+            date >= period.dateFrom &&
+            date <= period.dateTo
+        ) || null;
+
+    },
+
+    findSeasonalRate(
+        agent, category, occupancy, mealPlan, date
+    ) {
+
+        const period =
+            this.findSeasonalPeriod(
+                agent, category, occupancy, date
+            );
+
+        if (!period) return null;
+
+        const value = period.rates[mealPlan];
+
+        if (value === null || value === undefined) {
+
+            return null;
+        }
+
+        return { rate: Number(value) || 0, period: period };
+
+    },
+
+    addSeasonalRate(
+        agent, category, occupancy,
+        dateFrom, dateTo, rates
+    ) {
+
+        const master = ensureRoomMaster();
+
+        if (!master.agentSeasonalRates[agent]) {
+
+            return {
+                ok: false,
+                reason: "Agent not found."
+            };
+        }
+
+        if (!dateFrom || !dateTo || dateFrom > dateTo) {
+
+            return {
+                ok: false,
+                reason: "Enter a valid date range " +
+                        "(from on or before to)."
+            };
+        }
+
+        const occNum = Number(occupancy);
+
+        const cleanRates = {};
+
+        RATE_MEAL_PLANS.forEach(plan => {
+
+            const raw = rates ? rates[plan] : "";
+
+            if (raw === "" || raw === null || raw === undefined) {
+
+                cleanRates[plan] = null;
+
+            } else {
+
+                let number = Number(raw);
+
+                if (isNaN(number) || number < 0) number = 0;
+
+                cleanRates[plan] = number;
+            }
+
+        });
+
+        if (
+            RATE_MEAL_PLANS.every(
+                plan => cleanRates[plan] === null
+            )
+        ) {
+
+            return {
+                ok: false,
+                reason:
+                    "Enter at least one meal-plan rate " +
+                    "for this period."
+            };
+        }
+
+        /* Overlap is category + occupancy + date range
+           only now - one period already covers every meal
+           plan, so a second period for the same room/dates
+           would just be ambiguous, not a legitimate
+           "different meal plan" case anymore. */
+
+        const overlap =
+            master.agentSeasonalRates[agent].find(period =>
+                period.category === category &&
+                Number(period.occupancy) === occNum &&
+                dateFrom <= period.dateTo &&
+                dateTo >= period.dateFrom
+            );
+
+        if (overlap) {
+
+            return {
+                ok: false,
+                reason:
+                    "Overlaps an existing period for " +
+                    category + " / " + occNum + " pax (" +
+                    overlap.dateFrom + " to " +
+                    overlap.dateTo + "). Remove or adjust " +
+                    "that one first."
+            };
+        }
+
+        const entry = {
+
+            id:
+                "SR-" + Date.now() + "-" +
+                Math.floor(Math.random() * 1000),
+
+            category:  category,
+            occupancy: occNum,
+            dateFrom:  dateFrom,
+            dateTo:    dateTo,
+            rates:     cleanRates
+
+        };
+
+        master.agentSeasonalRates[agent].push(entry);
+
+        saveDatabase();
+
+        return { ok: true, entry: entry };
+
+    },
+
+    removeSeasonalRate(agent, periodId) {
+
+        const master = ensureRoomMaster();
+
+        if (!master.agentSeasonalRates[agent]) return false;
+
+        const before =
+            master.agentSeasonalRates[agent].length;
+
+        master.agentSeasonalRates[agent] =
+            master.agentSeasonalRates[agent]
+                .filter(p => p.id !== periodId);
+
+        saveDatabase();
+
+        return (
+            master.agentSeasonalRates[agent].length < before
+        );
 
     },
 
@@ -1171,6 +1496,112 @@ async function deleteMasterAgent(name) {
     RoomMasterRepository.removeAgent(name);
 
     renderAgentPanels();
+}
+
+
+/* =====================================================
+   SEASONAL RATE HANDLERS
+===================================================== */
+
+async function addSeasonalRateEntry() {
+
+    const agent =
+        document.getElementById("agentRateSelect")
+            ?.value || "";
+
+    if (!agent) {
+
+        await showAlert("Select an agent first.");
+
+        return;
+    }
+
+    const category =
+        document.getElementById("seasonalCategorySelect")
+            ?.value || "";
+
+    const occupancy =
+        document.getElementById("seasonalOccupancyInput")
+            ?.value || "";
+
+    const dateFrom =
+        document.getElementById("seasonalDateFrom")
+            ?.value || "";
+
+    const dateTo =
+        document.getElementById("seasonalDateTo")
+            ?.value || "";
+
+    if (!category || !occupancy) {
+
+        await showAlert(
+            "Choose a category and occupancy."
+        );
+
+        return;
+    }
+
+    const rates = {};
+
+    RATE_MEAL_PLANS.forEach(plan => {
+
+        rates[plan] =
+            document.getElementById(
+                "seasonalRate_" + plan
+            )?.value || "";
+
+    });
+
+    const result =
+        RoomMasterRepository.addSeasonalRate(
+            agent, category, occupancy,
+            dateFrom, dateTo, rates
+        );
+
+    if (!result.ok) {
+
+        await showAlert(result.reason, "Cannot Add Period");
+
+        return;
+    }
+
+    document.getElementById("seasonalDateFrom").value = "";
+    document.getElementById("seasonalDateTo").value = "";
+
+    RATE_MEAL_PLANS.forEach(plan => {
+
+        const input =
+            document.getElementById("seasonalRate_" + plan);
+
+        if (input) input.value = "";
+
+    });
+
+    renderSeasonalRatesList();
+}
+
+
+async function deleteSeasonalRateEntry(periodId) {
+
+    const agent =
+        document.getElementById("agentRateSelect")
+            ?.value || "";
+
+    if (!agent) return;
+
+    const ok = await showConfirm(
+        "Remove this seasonal rate period?",
+        "Remove Period",
+        { danger: true, okLabel: "Remove" }
+    );
+
+    if (!ok) return;
+
+    RoomMasterRepository.removeSeasonalRate(
+        agent, periodId
+    );
+
+    renderSeasonalRatesList();
 }
 
 
@@ -1845,6 +2276,143 @@ function renderAgentRateCard() {
 }
 
 
+function renderSeasonalCategorySelect() {
+
+    const select =
+        document.getElementById("seasonalCategorySelect");
+
+    if (!select) return;
+
+    const current = select.value;
+
+    const categories =
+        RoomMasterRepository.getCategories();
+
+    select.innerHTML =
+        categories.length === 0
+            ? '<option value="">No categories</option>'
+            : categories
+                .map(name =>
+                    `<option value="${name}">${name}</option>`
+                )
+                .join("");
+
+    if (categories.indexOf(current) >= 0) {
+
+        select.value = current;
+    }
+}
+
+
+function renderSeasonalRatesList() {
+
+    const wrap =
+        document.getElementById("seasonalRatesBody");
+
+    const select =
+        document.getElementById("agentRateSelect");
+
+    if (!wrap) return;
+
+    const agent = select?.value || "";
+
+    if (!agent) {
+
+        wrap.innerHTML =
+            `<p class="muted-note">
+                No agent selected.
+            </p>`;
+
+        return;
+    }
+
+    const periods =
+        RoomMasterRepository.getSeasonalRates(agent);
+
+    if (periods.length === 0) {
+
+        wrap.innerHTML =
+            `<p class="muted-note">
+                No seasonal periods for this agent yet -
+                add one above. Outside any period defined
+                here, the standing rate above applies.
+            </p>`;
+
+        return;
+    }
+
+    const currency =
+        RoomMasterRepository.getRateCurrency();
+
+    const symbol =
+        RATE_CURRENCIES[currency] || currency;
+
+    let rows = "";
+
+    periods
+
+        .slice()
+
+        .sort((a, b) =>
+            a.dateFrom.localeCompare(b.dateFrom)
+        )
+
+        .forEach(period => {
+
+            const periodRates = period.rates || {};
+
+            const rateCells =
+                RATE_MEAL_PLANS
+                    .map(plan => {
+
+                        const value = periodRates[plan];
+
+                        return value === null ||
+                               value === undefined
+                            ? "—"
+                            : symbol + " " +
+                              Number(value).toLocaleString();
+
+                    })
+                    .join(" &nbsp;/&nbsp; ");
+
+            rows += `
+            <tr>
+                <td>${period.category}</td>
+                <td>${period.occupancy} pax</td>
+                <td>${period.dateFrom}</td>
+                <td>${period.dateTo}</td>
+                <td>${rateCells}</td>
+                <td>
+                    <button
+                        type="button"
+                        onclick="deleteSeasonalRateEntry('${period.id}')">
+                        Remove
+                    </button>
+                </td>
+            </tr>
+            `;
+
+        });
+
+    wrap.innerHTML = `
+    <table class="data-table category-table">
+        <thead>
+            <tr>
+                <th>Category</th>
+                <th>Occ.</th>
+                <th>From</th>
+                <th>To</th>
+                <th>EP / CP / MAP / AP</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+    </table>
+    `;
+}
+
+
 function renderAgentPanels() {
 
     renderAgentList();
@@ -1852,6 +2420,10 @@ function renderAgentPanels() {
     renderAgentSelector();
 
     renderAgentRateCard();
+
+    renderSeasonalCategorySelect();
+
+    renderSeasonalRatesList();
 }
 
 
@@ -2196,7 +2768,20 @@ function initializeRoomMasterEvents() {
         .getElementById("agentRateSelect")
         ?.addEventListener(
             "change",
-            renderAgentRateCard
+            function () {
+
+                renderAgentRateCard();
+
+                renderSeasonalRatesList();
+
+            }
+        );
+
+    document
+        .getElementById("btnAddSeasonalRate")
+        ?.addEventListener(
+            "click",
+            addSeasonalRateEntry
         );
 
 }

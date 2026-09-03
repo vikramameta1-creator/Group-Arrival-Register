@@ -223,6 +223,14 @@ function switchPage(pageId) {
 
         renderAttachmentsPanel();
     }
+
+    if (
+        pageId === "registerToolsPage" &&
+        typeof renderRatesPanel === "function"
+    ) {
+
+        renderRatesPanel();
+    }
 }
 
 
@@ -259,38 +267,81 @@ function updateFloatingSavePosition() {
     const activePage =
         document.querySelector(".page.active-page");
 
+    /* ---------- Summary Cards: lift clear ---------- */
+
     const summaryGrid =
         activePage?.querySelector(".summary-grid");
 
-    if (!summaryGrid) {
+    let summaryCollides = false;
 
-        floatingPanel.classList.remove(
-            "floating-action-panel-lifted"
-        );
+    if (summaryGrid) {
 
-        return;
+        const gridRect =
+            summaryGrid.getBoundingClientRect();
+
+        const viewportHeight = window.innerHeight;
+
+        /* The panel's own resting footprint - roughly its
+           height plus the 24px it sits off the bottom
+           edge, plus a small safety margin. */
+
+        const dangerZoneTop = viewportHeight - 90;
+
+        summaryCollides =
+            gridRect.bottom > dangerZoneTop &&
+            gridRect.top < viewportHeight;
     }
-
-    const gridRect =
-        summaryGrid.getBoundingClientRect();
-
-    const viewportHeight =
-        window.innerHeight;
-
-    /* The panel's own resting footprint - roughly its
-       height plus the 24px it sits off the bottom edge,
-       plus a small safety margin. Anything from the cards
-       poking into this zone counts as a collision. */
-
-    const dangerZoneTop = viewportHeight - 90;
-
-    const collides =
-        gridRect.bottom > dangerZoneTop &&
-        gridRect.top < viewportHeight;
 
     floatingPanel.classList.toggle(
         "floating-action-panel-lifted",
-        collides
+        summaryCollides
+    );
+
+    /* ---------- Register Table: fade, don't block clicks ----------
+
+       A wide table's rightmost column can end up directly
+       under the panel's fixed bottom-right position, no
+       matter how far the page has scrolled - not just near
+       the bottom of the page like the summary cards. Lifting
+       doesn't fix this the way it fixes the summary-card
+       case, since the very next row scrolled into view would
+       have the exact same problem. Instead: if the panel is
+       genuinely sitting on top of the table right now, fade
+       it and let clicks pass straight through to whatever
+       checkbox is actually underneath, rather than silently
+       eating the click or - worse - misdirecting it to
+       whichever row the panel happens to be covering. This
+       is what was actually happening when checking a
+       "Checked Out" box appeared to select a different room:
+       the click was landing on the panel, not the checkbox
+       under it. */
+
+    const table =
+        activePage?.querySelector(
+            "#arrivalRegisterTable, .register-table"
+        );
+
+    let tableCollides = false;
+
+    if (table) {
+
+        const panelRect =
+            floatingPanel.getBoundingClientRect();
+
+        const tableRect =
+            table.getBoundingClientRect();
+
+        tableCollides = !(
+            panelRect.right  < tableRect.left  ||
+            panelRect.left   > tableRect.right ||
+            panelRect.bottom < tableRect.top   ||
+            panelRect.top    > tableRect.bottom
+        );
+    }
+
+    floatingPanel.classList.toggle(
+        "floating-action-panel-faded",
+        tableCollides
     );
 }
 

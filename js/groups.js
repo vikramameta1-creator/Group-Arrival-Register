@@ -106,7 +106,12 @@ function getCurrentGroupData() {
                 )?.textContent || 0
             ),
 
-        rooms: getRegisterRows()
+        rooms: getRegisterRows(),
+
+        rateCalendars:
+            typeof getRateCalendarsForSave === "function"
+                ? getRateCalendarsForSave()
+                : {}
     };
 }
 
@@ -315,6 +320,11 @@ function loadGroupToScreen(group) {
     if (typeof resetAttachmentSession === "function") {
 
         resetAttachmentSession();
+    }
+
+    if (typeof loadRateCalendarsFromGroup === "function") {
+
+        loadRateCalendarsFromGroup(group);
     }
 
     currentGroupNoShowFlag = !!group.noShowFlag;

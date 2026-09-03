@@ -1136,6 +1136,11 @@ async function clearRegister() {
 
         resetAttachmentSession();
     }
+
+    if (typeof resetRateCalendarState === "function") {
+
+        resetRateCalendarState();
+    }
 }
 /* =====================================================
    EMPTY ROW RULE

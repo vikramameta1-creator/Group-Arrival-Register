@@ -1715,6 +1715,25 @@ body{
 
 }
 
+.floating-action-panel-faded{
+
+    /* The panel is genuinely sitting on top of the
+       register table right now. pointer-events:none lets
+       clicks pass straight through to whatever checkbox
+       or button is actually underneath, instead of the
+       panel eating the click or the wrong row appearing
+       to get selected. Faded, not hidden, so it's still
+       obvious the panel exists and will work again once
+       you scroll clear of the table. */
+
+    opacity:0.25;
+
+    pointer-events:none;
+
+    transition:opacity 0.15s ease;
+
+}
+
 /* =====================================================
    ATTACHMENTS PANEL
 
@@ -2657,6 +2676,198 @@ body{
 
 }
 
+/* =====================================================
+   CATEGORY RATES
+
+   One block per category rather than a table, since each
+   category can have a different number of rate inputs
+   depending on its own Max Occupancy - a shared table
+   would need a variable column count per row.
+===================================================== */
+
+.rate-panel-header{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:10px;
+
+    flex-wrap:wrap;
+
+}
+
+.rate-panel-header select{
+
+    padding:6px 8px;
+
+    border:1px solid var(--border);
+
+    border-radius:6px;
+
+    font-size:13px;
+
+}
+
+.rate-category-row{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:16px;
+
+    flex-wrap:wrap;
+
+    padding:10px 0;
+
+    border-bottom:1px solid var(--border);
+
+}
+
+.rate-category-row:last-child{
+
+    border-bottom:none;
+
+}
+
+.rate-category-name{
+
+    font-weight:700;
+
+    min-width:120px;
+
+    display:flex;
+
+    align-items:center;
+
+    gap:6px;
+
+}
+
+.rate-currency-tag{
+
+    font-size:11px;
+
+    font-weight:400;
+
+    color:var(--muted);
+
+}
+
+.rate-occupancy-list{
+
+    display:flex;
+
+    gap:20px;
+
+    flex-wrap:wrap;
+
+}
+
+.rate-occupancy-block{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:4px;
+
+}
+
+.rate-occ-tag{
+
+    font-size:11px;
+
+    font-weight:700;
+
+    color:var(--text);
+
+}
+
+.rate-plan-row{
+
+    display:flex;
+
+    gap:8px;
+
+}
+
+.rate-plan-label{
+
+    display:flex;
+
+    flex-direction:column;
+
+    align-items:center;
+
+    gap:3px;
+
+    font-size:10px;
+
+    color:var(--muted);
+
+}
+
+.rate-plan-tag{
+
+    font-weight:700;
+
+}
+
+.rate-input{
+
+    width:80px;
+
+    padding:5px 4px;
+
+    border:1px solid var(--border);
+
+    border-radius:6px;
+
+    font-size:13px;
+
+    text-align:center;
+
+    background:var(--white);
+
+    color:var(--text);
+
+}
+
+.rate-input:focus{
+
+    outline:none;
+
+    border-color:var(--primary);
+
+    box-shadow:0 0 0 2px rgba(31,78,121,.25);
+
+}
+
+.rate-input-overridden{
+
+    /* A real override for this agent, not the category
+       default showing through as a placeholder - visually
+       distinct so it reads at a glance without needing to
+       hover for the title tooltip. */
+
+    border-color:var(--warning, #e0a800);
+
+    background:#fff8e6;
+
+    font-weight:700;
+
+}
+
+.rate-input::placeholder{
+
+    color:var(--muted);
+
+    font-weight:400;
+
+}
+
 .capacity-cell{
 
     font-size:12px;
@@ -3526,5 +3737,28 @@ tr.row-checked-out td{
 tr.row-checked-out .roomCheckedOutToggle{
 
     color: var(--success);
+
+}
+
+/* =====================================================
+   FOC / TOUR GUIDE ROOMS
+
+   Reference flag only - still counts fully in Total Rooms
+   and Total Pax, this is visual identification, not an
+   exclusion. Left border keeps it distinct from the
+   checked-out treatment above rather than reusing it.
+===================================================== */
+
+tr.row-foc{
+
+    border-left: 4px solid var(--warning, #e0a800);
+
+}
+
+tr.row-foc .focRoomToggle{
+
+    color: var(--warning, #e0a800);
+
+    font-weight: 700;
 
 }

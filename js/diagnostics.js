@@ -53,7 +53,10 @@ const MODULE_MANIFEST = {
         "getRoomOccupancyRule", "isRoomInMaster",
         "roomMasterHasRooms", "renderRoomMaster",
         "initializeRoomMaster", "hashPin",
-        "applyRoomMasterLock"
+        "applyRoomMasterLock", "renderCategoryRates",
+        "changeCategoryRate", "changeRateCurrency",
+        "renderAgentPanels", "changeAgentRate",
+        "addMasterAgent"
     ],
 
     "register.js": [
@@ -187,6 +190,9 @@ const CRITICAL_ELEMENTS = [
     "reportArrivalSummary", "reportMealSummary",
     "reportOccupancySummary", "reportCategorySummary",
     "reportConflictSummary",
+    "categoryRatesBody", "rateCurrencySelect",
+    "agentListBody", "agentRateSelect",
+    "agentRateCardBody",
     "attachmentDropZone", "attachmentFileInput",
     "attachmentsList",
     "groupSearchModal", "groupSearchModalInput",

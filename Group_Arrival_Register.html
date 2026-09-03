@@ -925,6 +925,114 @@
 
     </div>
 
+    <!-- ---------- CATEGORY RATES ---------- -->
+
+    <div class="dashboard-panel">
+
+        <div class="rate-panel-header">
+
+            <h3>Category Rates</h3>
+
+            <label class="sr-label" for="rateCurrencySelect">
+                Currency
+            </label>
+
+            <select id="rateCurrencySelect">
+                <option value="INR">₹ INR</option>
+                <option value="USD">$ USD</option>
+                <option value="EUR">€ EUR</option>
+                <option value="GBP">£ GBP</option>
+                <option value="AED">AED</option>
+                <option value="SGD">S$ SGD</option>
+                <option value="AUD">A$ AUD</option>
+                <option value="CAD">C$ CAD</option>
+            </select>
+
+        </div>
+
+        <p class="muted-note">
+            Per room, per night. Internal reference only —
+            never appears on any printed document.
+        </p>
+
+        <div id="categoryRatesBody"></div>
+
+    </div>
+
+    <!-- ---------- AGENTS ---------- -->
+
+    <div class="dashboard-row">
+
+        <div class="dashboard-panel">
+
+            <h3>Agents</h3>
+
+            <p class="muted-note">
+                Deleting or renaming an agent here does not
+                change any group already saved with that
+                name — Agent/Company on a group is free
+                text, matched against this list by name for
+                rate lookup only.
+            </p>
+
+            <div class="action-bar">
+
+                <input
+                    type="text"
+                    id="newAgentName"
+                    placeholder="e.g. Udaipur Holidays">
+
+                <button id="btnAddAgent">Add Agent</button>
+
+            </div>
+
+            <div class="table-container">
+
+                <table class="data-table category-table">
+
+                    <thead>
+                        <tr>
+                            <th>Agent</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="agentListBody"></tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+        <div class="dashboard-panel">
+
+            <h3>Agent Rate Card</h3>
+
+            <p class="muted-note">
+                Blank fields use the category default —
+                highlighted fields are overridden for this
+                agent specifically.
+            </p>
+
+            <div class="action-bar">
+
+                <label class="sr-label" for="agentRateSelect">
+                    Agent
+                </label>
+
+                <select id="agentRateSelect">
+                    <option value="">No agents yet</option>
+                </select>
+
+            </div>
+
+            <div id="agentRateCardBody"></div>
+
+        </div>
+
+    </div>
+
     <!-- ---------- INVENTORY ---------- -->
 
     <div class="dashboard-panel">

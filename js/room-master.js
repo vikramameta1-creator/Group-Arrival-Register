@@ -46,6 +46,41 @@ const OCCUPANCY_FIELDS = [
 
 
 /* =====================================================
+   CATEGORY RATES
+
+   Internal reference only - never printed, never shown
+   on any guest-facing document. Rate is per room, per
+   night, and varies by occupancy count within a category
+   (a Deluxe room at 1 pax is priced separately from the
+   same Deluxe room at 2 or 3 pax) rather than one flat
+   rate per category. Feeds the planned ADR/RevPAR/revenue
+   reports (1.1.0) - this phase is data entry only, no
+   report reads these numbers yet.
+===================================================== */
+
+const RATE_CURRENCIES = {
+
+    INR: "₹",
+    USD: "$",
+    EUR: "€",
+    GBP: "£",
+    AED: "AED",
+    SGD: "S$",
+    AUD: "A$",
+    CAD: "C$"
+
+};
+
+const DEFAULT_RATE_CURRENCY = "INR";
+
+/* Rates vary by meal plan, not just category and
+   occupancy - the same room at the same occupancy costs
+   a different amount on CP than on MAP. */
+
+const RATE_MEAL_PLANS = ["EP", "CP", "MAP", "AP"];
+
+
+/* =====================================================
    STRUCTURE GUARD
 ===================================================== */
 
@@ -56,7 +91,11 @@ function ensureRoomMaster() {
         DB.roomMaster = {
             categories: [],
             rooms: {},
-            rules: {}
+            rules: {},
+            rates: {},
+            rateCurrency: DEFAULT_RATE_CURRENCY,
+            agents: [],
+            agentRates: {}
         };
     }
 
@@ -83,7 +122,60 @@ function ensureRoomMaster() {
         master.rules = {};
     }
 
-    /* Every category must have a rule */
+    if (
+        !master.rates ||
+        typeof master.rates !== "object"
+    ) {
+
+        master.rates = {};
+    }
+
+    if (!RATE_CURRENCIES[master.rateCurrency]) {
+
+        master.rateCurrency = DEFAULT_RATE_CURRENCY;
+    }
+
+    if (!Array.isArray(master.agents)) {
+
+        master.agents = [];
+    }
+
+    if (
+        !master.agentRates ||
+        typeof master.agentRates !== "object"
+    ) {
+
+        master.agentRates = {};
+    }
+
+    /* Agent rate cards stay deliberately SPARSE, unlike
+       category rates above. An agent with no entry for a
+       given category/occupancy/meal-plan combination is
+       not "0" - it means "no override, use the category
+       default." Force-filling every combination with 0
+       would make every agent look like they get every
+       room free, which is the opposite of what an empty
+       card means. */
+
+    master.agents.forEach(name => {
+
+        if (
+            !master.agentRates[name] ||
+            typeof master.agentRates[name] !== "object"
+        ) {
+
+            master.agentRates[name] = {};
+        }
+
+    });
+
+    /* Every category must have a rule, and a rate entry
+       for every occupancy level from 1 up to that
+       category's CURRENT max occupancy - reconciled every
+       time this runs, same as the rule fields above, so
+       raising or lowering Max Occupancy automatically
+       grows or shrinks the rate fields to match on the
+       very next render. */
 
     master.categories.forEach(name => {
 
@@ -102,6 +194,54 @@ function ensureRoomMaster() {
                 isNaN(value) || value < 0
                     ? DEFAULT_OCCUPANCY_RULE[field]
                     : value;
+
+        });
+
+        if (
+            !master.rates[name] ||
+            typeof master.rates[name] !== "object"
+        ) {
+
+            master.rates[name] = {};
+        }
+
+        const maxOcc = master.rules[name].maxOccupancy;
+
+        for (let occ = 1; occ <= maxOcc; occ++) {
+
+            /* Each occupancy level holds one rate per meal
+               plan, not a single number. A pre-existing
+               plain-number entry (from before meal plans
+               were tracked) is discarded rather than
+               guessed into one specific plan - starts
+               fresh at 0 across all four. */
+
+            if (
+                typeof master.rates[name][occ] !== "object" ||
+                master.rates[name][occ] === null
+            ) {
+
+                master.rates[name][occ] = {};
+            }
+
+            RATE_MEAL_PLANS.forEach(plan => {
+
+                const value =
+                    Number(master.rates[name][occ][plan]);
+
+                master.rates[name][occ][plan] =
+                    isNaN(value) || value < 0 ? 0 : value;
+
+            });
+
+        }
+
+        Object.keys(master.rates[name]).forEach(occ => {
+
+            if (Number(occ) > maxOcc) {
+
+                delete master.rates[name][occ];
+            }
 
         });
 
@@ -289,6 +429,11 @@ const RoomMasterRepository = {
 
         delete master.rules[oldName];
 
+        master.rates[clean] =
+            master.rates[oldName] || {};
+
+        delete master.rates[oldName];
+
         Object.keys(master.rooms).forEach(room => {
 
             if (master.rooms[room] === oldName) {
@@ -316,6 +461,8 @@ const RoomMasterRepository = {
         master.categories.splice(index, 1);
 
         delete master.rules[name];
+
+        delete master.rates[name];
 
         Object.keys(master.rooms).forEach(room => {
 
@@ -403,6 +550,268 @@ const RoomMasterRepository = {
         if (rule.defaultAdults < 1) {
 
             rule.defaultAdults = 1;
+        }
+
+        saveDatabase();
+
+        return true;
+
+    },
+
+    /* ---------- Category Rates ---------- */
+
+    getRates(category) {
+
+        const master = ensureRoomMaster();
+
+        return Object.assign(
+            {},
+            master.rates[category] || {}
+        );
+
+    },
+
+    getRate(category, occupancy, mealPlan) {
+
+        const master = ensureRoomMaster();
+
+        const bucket =
+            (master.rates[category] || {})[occupancy] ||
+            {};
+
+        const value = Number(bucket[mealPlan]);
+
+        return isNaN(value) ? 0 : value;
+
+    },
+
+    setRate(category, occupancy, mealPlan, value) {
+
+        const master = ensureRoomMaster();
+
+        if (
+            !master.rates[category] ||
+            !master.rates[category][occupancy] ||
+            RATE_MEAL_PLANS.indexOf(mealPlan) < 0
+        ) {
+
+            return false;
+        }
+
+        let number = Number(value);
+
+        if (isNaN(number) || number < 0) number = 0;
+
+        master.rates[category][occupancy][mealPlan] =
+            number;
+
+        saveDatabase();
+
+        return true;
+
+    },
+
+    getRateCurrency() {
+
+        return ensureRoomMaster().rateCurrency;
+
+    },
+
+    setRateCurrency(code) {
+
+        const master = ensureRoomMaster();
+
+        if (!RATE_CURRENCIES[code]) return false;
+
+        master.rateCurrency = code;
+
+        saveDatabase();
+
+        return true;
+
+    },
+
+    /* ---------- Agents ---------- */
+
+    getAgents() {
+
+        return ensureRoomMaster().agents;
+
+    },
+
+    hasAgent(name) {
+
+        return this
+            .getAgents()
+            .some(a =>
+                a.toLowerCase() ===
+                String(name).trim().toLowerCase()
+            );
+
+    },
+
+    addAgent(name) {
+
+        const clean = String(name || "").trim();
+
+        if (!clean) return false;
+
+        if (this.hasAgent(clean)) return false;
+
+        const master = ensureRoomMaster();
+
+        master.agents.push(clean);
+
+        master.agentRates[clean] = {};
+
+        saveDatabase();
+
+        return true;
+
+    },
+
+    renameAgent(oldName, newName) {
+
+        const master = ensureRoomMaster();
+
+        const clean = String(newName || "").trim();
+
+        if (!clean) return false;
+
+        const index =
+            master.agents.indexOf(oldName);
+
+        if (index < 0) return false;
+
+        master.agents[index] = clean;
+
+        master.agentRates[clean] =
+            master.agentRates[oldName] || {};
+
+        delete master.agentRates[oldName];
+
+        saveDatabase();
+
+        return true;
+
+    },
+
+    removeAgent(name) {
+
+        const master = ensureRoomMaster();
+
+        const index =
+            master.agents.indexOf(name);
+
+        if (index < 0) return false;
+
+        master.agents.splice(index, 1);
+
+        delete master.agentRates[name];
+
+        saveDatabase();
+
+        return true;
+
+    },
+
+    /* ---------- Agent Rate Overrides ----------
+
+       An agent's card only holds what actually differs
+       from the category default - absence means "use the
+       default," not zero. getAgentRate() always resolves
+       to a real, usable number by falling back to the
+       category default itself; hasAgentOverride() is the
+       only way to tell whether a specific figure came from
+       the agent's own card or fell through to the default,
+       which is what the Overridden/Default/Agent badge in
+       the rate calendar (phase 3) will read. */
+
+    hasAgentOverride(agent, category, occupancy, mealPlan) {
+
+        const master = ensureRoomMaster();
+
+        const bucket =
+            (
+                (
+                    (master.agentRates[agent] || {})
+                    [category] || {}
+                )
+                [occupancy] || {}
+            );
+
+        return (
+            bucket[mealPlan] !== undefined &&
+            bucket[mealPlan] !== null
+        );
+
+    },
+
+    getAgentRate(agent, category, occupancy, mealPlan) {
+
+        if (
+            this.hasAgentOverride(
+                agent, category, occupancy, mealPlan
+            )
+        ) {
+
+            const master = ensureRoomMaster();
+
+            const value =
+                master.agentRates[agent]
+                    [category][occupancy][mealPlan];
+
+            const number = Number(value);
+
+            if (!isNaN(number)) return number;
+        }
+
+        return this.getRate(category, occupancy, mealPlan);
+
+    },
+
+    setAgentRate(agent, category, occupancy, mealPlan, value) {
+
+        const master = ensureRoomMaster();
+
+        if (!master.agentRates[agent]) return false;
+
+        if (RATE_MEAL_PLANS.indexOf(mealPlan) < 0) {
+
+            return false;
+        }
+
+        if (!master.agentRates[agent][category]) {
+
+            master.agentRates[agent][category] = {};
+        }
+
+        if (
+            !master.agentRates[agent][category][occupancy]
+        ) {
+
+            master.agentRates[agent][category][occupancy] =
+                {};
+        }
+
+        /* An empty value clears the override, falling
+           back to the category default again - not the
+           same as setting it to 0, which means this agent
+           genuinely gets this exact combination free. */
+
+        if (value === "" || value === null) {
+
+            delete master.agentRates[agent]
+                [category][occupancy][mealPlan];
+
+        } else {
+
+            let number = Number(value);
+
+            if (isNaN(number) || number < 0) number = 0;
+
+            master.agentRates[agent]
+                [category][occupancy][mealPlan] = number;
         }
 
         saveDatabase();
@@ -681,6 +1090,90 @@ async function deleteRoomCategory(name) {
 }
 
 
+async function addMasterAgent() {
+
+    const input =
+        document.getElementById("newAgentName");
+
+    if (!input) return;
+
+    const name = input.value.trim();
+
+    if (!name) {
+
+        await showAlert("Enter an agent name.");
+
+        return;
+    }
+
+    if (!RoomMasterRepository.addAgent(name)) {
+
+        await showAlert("That agent already exists.");
+
+        return;
+    }
+
+    input.value = "";
+
+    renderAgentPanels();
+}
+
+
+async function renameMasterAgent(name) {
+
+    const updated =
+        await showPrompt(
+            "New name for this agent",
+            name,
+            "Rename Agent"
+        );
+
+    if (updated === null) return;
+
+    if (!updated.trim()) {
+
+        await showAlert("Agent name cannot be empty.");
+
+        return;
+    }
+
+    if (
+        updated.trim().toLowerCase() !==
+            name.toLowerCase() &&
+        RoomMasterRepository.hasAgent(updated)
+    ) {
+
+        await showAlert("That agent already exists.");
+
+        return;
+    }
+
+    RoomMasterRepository.renameAgent(name, updated);
+
+    renderAgentPanels();
+}
+
+
+async function deleteMasterAgent(name) {
+
+    const ok = await showConfirm(
+        "Delete agent '" + name + "'?\n\n" +
+        "Any rate overrides on this agent's card are " +
+        "removed. Groups already using this agent's name " +
+        "are not affected - Agent/Company on a group is " +
+        "free text, not linked to this list.",
+        "Delete Agent",
+        { danger: true, okLabel: "Delete" }
+    );
+
+    if (!ok) return;
+
+    RoomMasterRepository.removeAgent(name);
+
+    renderAgentPanels();
+}
+
+
 function changeCategoryRule(category, field, value) {
 
     RoomMasterRepository.setRuleField(
@@ -697,6 +1190,31 @@ function changeCategoryRule(category, field, value) {
 
         refreshRegisterViews();
     }
+}
+
+
+/* =====================================================
+   RATE ACTIONS
+===================================================== */
+
+function changeCategoryRate(category, occupancy, mealPlan, value) {
+
+    RoomMasterRepository.setRate(
+        category,
+        occupancy,
+        mealPlan,
+        value
+    );
+
+    renderCategoryRates();
+}
+
+
+function changeRateCurrency(code) {
+
+    RoomMasterRepository.setRateCurrency(code);
+
+    renderCategoryRates();
 }
 
 
@@ -961,6 +1479,398 @@ function renderCategoryList() {
    RENDER : CATEGORY DROPDOWN
 ===================================================== */
 
+/* =====================================================
+   RENDER : CATEGORY RATES
+===================================================== */
+
+function buildRateOccupancyBlock(category, occupancy, rateRow) {
+
+    const safe = category.replace(/'/g, "\\'");
+
+    let planInputs = "";
+
+    RATE_MEAL_PLANS.forEach(plan => {
+
+        const value = (rateRow || {})[plan] || 0;
+
+        planInputs += `
+        <label class="rate-plan-label">
+            <span class="rate-plan-tag">${plan}</span>
+            <input
+                type="number"
+                class="rate-input"
+                min="0"
+                step="1"
+                value="${value}"
+                onchange="changeCategoryRate('${safe}',${occupancy},'${plan}',this.value)">
+        </label>
+        `;
+
+    });
+
+    return `
+    <div class="rate-occupancy-block">
+        <div class="rate-occ-tag">${occupancy} pax</div>
+        <div class="rate-plan-row">${planInputs}</div>
+    </div>
+    `;
+}
+
+
+function renderCategoryRates() {
+
+    const wrap =
+        document.getElementById("categoryRatesBody");
+
+    const currencySelect =
+        document.getElementById("rateCurrencySelect");
+
+    if (!wrap) return;
+
+    const categories =
+        RoomMasterRepository.getCategories();
+
+    const currency =
+        RoomMasterRepository.getRateCurrency();
+
+    if (currencySelect) {
+
+        currencySelect.value = currency;
+    }
+
+    const symbol =
+        RATE_CURRENCIES[currency] || currency;
+
+    wrap.innerHTML = "";
+
+    if (categories.length === 0) {
+
+        wrap.innerHTML =
+            `<p class="muted-note">
+                No categories yet. Add one above before
+                setting rates.
+            </p>`;
+
+        return;
+    }
+
+    categories.forEach(name => {
+
+        const rule =
+            RoomMasterRepository.getRule(name);
+
+        const rates =
+            RoomMasterRepository.getRates(name);
+
+        let blocks = "";
+
+        for (
+            let occ = 1;
+            occ <= rule.maxOccupancy;
+            occ++
+        ) {
+
+            blocks += buildRateOccupancyBlock(
+                name,
+                occ,
+                rates[occ]
+            );
+
+        }
+
+        wrap.insertAdjacentHTML(
+
+            "beforeend",
+
+            `
+<div class="rate-category-row">
+
+    <div class="rate-category-name">
+        ${name}
+        <span class="rate-currency-tag">${symbol}</span>
+    </div>
+
+    <div class="rate-occupancy-list">
+        ${blocks}
+    </div>
+
+</div>
+`
+        );
+
+    });
+}
+
+
+/* =====================================================
+   RENDER : AGENTS
+
+   Deleting or renaming an agent here does NOT touch any
+   group already saved with that name in its free-text
+   Agent/Company field - that field has never been linked
+   to this list, only matched against it by name when the
+   rate calendar (phase 3) looks up which card to use. A
+   rename here means groups saved under the old name stop
+   matching this card until the group itself is updated.
+===================================================== */
+
+function renderAgentList() {
+
+    const body =
+        document.getElementById("agentListBody");
+
+    if (!body) return;
+
+    const agents =
+        RoomMasterRepository.getAgents();
+
+    body.innerHTML = "";
+
+    if (agents.length === 0) {
+
+        body.innerHTML =
+            `<tr><td colspan="2">
+                No agents yet. Add one above.
+            </td></tr>`;
+
+        return;
+    }
+
+    agents.forEach(name => {
+
+        const safe = name.replace(/'/g, "\\'");
+
+        body.insertAdjacentHTML(
+
+            "beforeend",
+
+            `
+<tr>
+
+    <td><strong>${name}</strong></td>
+
+    <td>
+        <button onclick="renameMasterAgent('${safe}')">
+            Rename
+        </button>
+
+        <button onclick="deleteMasterAgent('${safe}')">
+            Delete
+        </button>
+    </td>
+
+</tr>
+`
+        );
+
+    });
+}
+
+
+function renderAgentSelector() {
+
+    const select =
+        document.getElementById("agentRateSelect");
+
+    if (!select) return;
+
+    const current = select.value;
+
+    const agents =
+        RoomMasterRepository.getAgents();
+
+    select.innerHTML =
+        agents.length === 0
+            ? '<option value="">No agents yet</option>'
+            : agents
+                .map(name =>
+                    `<option value="${name}">${name}</option>`
+                )
+                .join("");
+
+    if (agents.indexOf(current) >= 0) {
+
+        select.value = current;
+    }
+}
+
+
+function buildAgentRateOccupancyBlock(
+    agent, category, occupancy, rule
+) {
+
+    const safeAgent = agent.replace(/'/g, "\\'");
+
+    const safeCategory =
+        category.replace(/'/g, "\\'");
+
+    let planInputs = "";
+
+    RATE_MEAL_PLANS.forEach(plan => {
+
+        const isOverridden =
+            RoomMasterRepository.hasAgentOverride(
+                agent, category, occupancy, plan
+            );
+
+        const resolved =
+            RoomMasterRepository.getAgentRate(
+                agent, category, occupancy, plan
+            );
+
+        const inputValue =
+            isOverridden ? resolved : "";
+
+        const placeholder =
+            isOverridden ? "" : String(resolved);
+
+        planInputs += `
+        <label class="rate-plan-label">
+            <span class="rate-plan-tag">${plan}</span>
+            <input
+                type="number"
+                class="rate-input${
+                    isOverridden
+                        ? " rate-input-overridden"
+                        : ""
+                }"
+                min="0"
+                step="1"
+                placeholder="${placeholder}"
+                value="${inputValue}"
+                title="${
+                    isOverridden
+                        ? "Overridden for this agent"
+                        : "Using category default"
+                }"
+                onchange="changeAgentRate('${safeAgent}','${safeCategory}',${occupancy},'${plan}',this.value)">
+        </label>
+        `;
+
+    });
+
+    return `
+    <div class="rate-occupancy-block">
+        <div class="rate-occ-tag">${occupancy} pax</div>
+        <div class="rate-plan-row">${planInputs}</div>
+    </div>
+    `;
+}
+
+
+function renderAgentRateCard() {
+
+    const wrap =
+        document.getElementById("agentRateCardBody");
+
+    const select =
+        document.getElementById("agentRateSelect");
+
+    if (!wrap) return;
+
+    const agent = select?.value || "";
+
+    const categories =
+        RoomMasterRepository.getCategories();
+
+    if (!agent) {
+
+        wrap.innerHTML =
+            `<p class="muted-note">
+                No agent selected.
+            </p>`;
+
+        return;
+    }
+
+    if (categories.length === 0) {
+
+        wrap.innerHTML =
+            `<p class="muted-note">
+                No categories yet - add one before setting
+                agent rates.
+            </p>`;
+
+        return;
+    }
+
+    const currency =
+        RoomMasterRepository.getRateCurrency();
+
+    const symbol =
+        RATE_CURRENCIES[currency] || currency;
+
+    wrap.innerHTML = "";
+
+    categories.forEach(name => {
+
+        const rule =
+            RoomMasterRepository.getRule(name);
+
+        let blocks = "";
+
+        for (
+            let occ = 1;
+            occ <= rule.maxOccupancy;
+            occ++
+        ) {
+
+            blocks += buildAgentRateOccupancyBlock(
+                agent, name, occ, rule
+            );
+
+        }
+
+        wrap.insertAdjacentHTML(
+
+            "beforeend",
+
+            `
+<div class="rate-category-row">
+
+    <div class="rate-category-name">
+        ${name}
+        <span class="rate-currency-tag">${symbol}</span>
+    </div>
+
+    <div class="rate-occupancy-list">
+        ${blocks}
+    </div>
+
+</div>
+`
+        );
+
+    });
+}
+
+
+function renderAgentPanels() {
+
+    renderAgentList();
+
+    renderAgentSelector();
+
+    renderAgentRateCard();
+}
+
+
+function changeAgentRate(
+    agent, category, occupancy, mealPlan, value
+) {
+
+    RoomMasterRepository.setAgentRate(
+        agent, category, occupancy, mealPlan, value
+    );
+
+    renderAgentRateCard();
+}
+
+
+/* =====================================================
+   RENDER : CATEGORY DROPDOWN
+===================================================== */
+
 function renderCategoryDropdown() {
 
     const select =
@@ -1194,6 +2104,10 @@ function renderRoomMaster() {
 
     renderCategoryDropdown();
 
+    renderCategoryRates();
+
+    renderAgentPanels();
+
     renderRoomInventory();
 
     renderRoomMasterSummary();
@@ -1252,6 +2166,38 @@ function initializeRoomMasterEvents() {
     document
         .getElementById("roomMasterSearch")
         ?.addEventListener("input", renderRoomInventory);
+
+    document
+        .getElementById("rateCurrencySelect")
+        ?.addEventListener("change", function () {
+
+            changeRateCurrency(this.value);
+
+        });
+
+    document
+        .getElementById("btnAddAgent")
+        ?.addEventListener("click", addMasterAgent);
+
+    document
+        .getElementById("newAgentName")
+        ?.addEventListener("keydown", function (event) {
+
+            if (event.key === "Enter") {
+
+                event.preventDefault();
+
+                addMasterAgent();
+            }
+
+        });
+
+    document
+        .getElementById("agentRateSelect")
+        ?.addEventListener(
+            "change",
+            renderAgentRateCard
+        );
 
 }
 

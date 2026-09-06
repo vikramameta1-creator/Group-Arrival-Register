@@ -46,16 +46,41 @@
 
 const IMPORT_FIELDS = [
     { key: "groupName",  label: "Group Name",  keywords: ["group", "booking", "party"] },
-    { key: "roomNo",     label: "Room No",     keywords: ["room", "rm no", "room no"] },
-    { key: "category",   label: "Category",    keywords: ["category", "room type", "type"] },
-    { key: "guestName",  label: "Guest Name",  keywords: ["guest", "name", "pax name"] },
-    { key: "pax",        label: "Pax",         keywords: ["pax", "adults", "occupancy"] },
+    { key: "roomNo",     label: "Room No",     keywords: ["room no", "rm no", "room number"] },
+    { key: "category",   label: "Category",    keywords: ["category", "room type"] },
+    { key: "guestName",  label: "Guest Name",  keywords: ["guest", "pax name", "dealer name"] },
+    { key: "firstName",  label: "First Name",  keywords: ["first name", "fname"] },
+    { key: "lastName",   label: "Last Name",   keywords: ["last name", "lname", "surname"] },
+    { key: "pax",        label: "Pax",         keywords: ["pax", "adults", "no of pax"] },
+    { key: "occupancy",  label: "Occupancy Type (Single/Double/Triple)",
+                                                keywords: ["occupancy type", "room pairing", "occupancy"] },
     { key: "children",   label: "Children",    keywords: ["child", "kids", "cwb"] },
-    { key: "meal",       label: "Meal Plan",   keywords: ["meal", "plan", "mp"] },
+    { key: "meal",       label: "Meal Plan (EP/CP/MAP/AP)",
+                                                keywords: ["meal plan", "mp"] },
     { key: "mobile",     label: "Mobile",      keywords: ["mobile", "phone", "contact"] },
     { key: "agent",      label: "Agent",       keywords: ["agent", "company", "operator"] },
+    { key: "checkIn",    label: "Check-in Date", keywords: ["check in", "checkin", "arrival"] },
+    { key: "checkOut",   label: "Check-out Date", keywords: ["check out", "checkout", "departure"] },
+    { key: "serialNo",   label: "Serial No (reference only)",
+                                                keywords: ["sr no", "s.no", "sl no", "serial"] },
     { key: "ignore",     label: "Ignore this column", keywords: [] }
 ];
+
+/* Occupancy Type values map to a pax count when there's no
+   separate numeric Pax column - "SINGLE"/"SGL" both mean 1
+   the same way "DOUBLE"/"DBL"/"TWIN"/"TWN" both mean 2,
+   since different agents abbreviate the same thing
+   differently (confirmed directly from two real rooming
+   lists using different words for the same occupancy). */
+
+const OCCUPANCY_TYPE_TO_PAX = {
+
+    "SINGLE": 1, "SGL": 1,
+    "DOUBLE": 2, "DBL": 2, "TWIN": 2, "TWN": 2,
+    "TRIPLE": 3, "TRP": 3, "TRPL": 3,
+    "QUAD": 4, "QUADRUPLE": 4
+
+};
 
 const IMPORT_MEAL_PLANS = ["EP", "CP", "MAP", "AP"];
 
@@ -70,6 +95,62 @@ const HEADER_MIN_SCORE  = 2;
 
 
 /* =====================================================
+   VALUE NORMALIZATION HELPERS
+===================================================== */
+
+function occupancyTypeToPax(rawValue) {
+
+    const text =
+        String(rawValue || "").trim().toUpperCase();
+
+    return OCCUPANCY_TYPE_TO_PAX[text] || null;
+}
+
+
+function normalizeImportDate(rawValue) {
+
+    const text = String(rawValue || "").trim();
+
+    if (!text) return "";
+
+    /* Already a plain YYYY-MM-DD - nothing to do. */
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+
+    /* SheetJS is asked to return formatted values
+       (raw:false in readImportFile), so a bare Excel date
+       serial number shouldn't normally reach here - this
+       is a defensive fallback in case a cell has no
+       number format applied in the source file, which
+       happens more often than it should in real agent
+       spreadsheets. Excel's day-zero is 1899-12-30. */
+
+    if (/^\d{4,6}$/.test(text)) {
+
+        const serial = Number(text);
+
+        if (serial > 0 && serial < 60000) {
+
+            const epoch = new Date(1899, 11, 30);
+
+            epoch.setDate(epoch.getDate() + serial);
+
+            return epoch.toISOString().slice(0, 10);
+        }
+    }
+
+    const parsed = new Date(text);
+
+    if (!isNaN(parsed.getTime())) {
+
+        return parsed.toISOString().slice(0, 10);
+    }
+
+    return "";
+}
+
+
+/* =====================================================
    STATE
 
    Nothing here is persisted - this only exists for the
@@ -79,11 +160,13 @@ const HEADER_MIN_SCORE  = 2;
 
 let importState = {
 
-    rawRows:     [],   // every row from the file, unmodified
-    headerRow:   0,    // index into rawRows treated as headers
-    mapping:     {},   // { columnIndex: fieldKey }
-    groups:      [],   // built after mapping, before commit
-    arrivalDate: ""
+    rawRows:         [],   // every row from the file, unmodified
+    headerRow:       0,    // index into rawRows treated as headers
+    mapping:         {},   // { columnIndex: fieldKey }
+    groups:          [],   // built after mapping, before commit
+    warnings:        [],   // persisted so a rename re-render doesn't lose them
+    arrivalDate:     "",   // batch fallback, used when a group has no per-row dates
+    singleGroupName: ""    // used only when no column maps to Group Name
 
 };
 
@@ -91,11 +174,13 @@ let importState = {
 function resetImportState() {
 
     importState = {
-        rawRows:     [],
-        headerRow:   0,
-        mapping:     {},
-        groups:      [],
-        arrivalDate: ""
+        rawRows:         [],
+        headerRow:       0,
+        mapping:         {},
+        groups:          [],
+        warnings:        [],
+        arrivalDate:     "",
+        singleGroupName: ""
     };
 }
 
@@ -412,21 +497,36 @@ function buildGroupsFromMapping() {
             importState.headerRow + 1
         );
 
-    const groupNameCol  = getMappedColumnIndex("groupName");
-    const roomCol        = getMappedColumnIndex("roomNo");
-    const categoryCol    = getMappedColumnIndex("category");
-    const guestCol       = getMappedColumnIndex("guestName");
-    const paxCol         = getMappedColumnIndex("pax");
-    const childrenCol    = getMappedColumnIndex("children");
-    const mealCol        = getMappedColumnIndex("meal");
-    const mobileCol      = getMappedColumnIndex("mobile");
-    const agentCol       = getMappedColumnIndex("agent");
+    const groupNameCol   = getMappedColumnIndex("groupName");
+    const roomCol         = getMappedColumnIndex("roomNo");
+    const categoryCol     = getMappedColumnIndex("category");
+    const guestCol        = getMappedColumnIndex("guestName");
+    const firstNameCol    = getMappedColumnIndex("firstName");
+    const lastNameCol     = getMappedColumnIndex("lastName");
+    const paxCol          = getMappedColumnIndex("pax");
+    const occupancyCol    = getMappedColumnIndex("occupancy");
+    const childrenCol     = getMappedColumnIndex("children");
+    const mealCol         = getMappedColumnIndex("meal");
+    const mobileCol       = getMappedColumnIndex("mobile");
+    const agentCol        = getMappedColumnIndex("agent");
+    const checkInCol      = getMappedColumnIndex("checkIn");
+    const checkOutCol     = getMappedColumnIndex("checkOut");
 
     const groupsByKey = {};
 
     const orderedKeys = [];
 
     const warnings = [];
+
+    /* No column mapped to Group Name at all - both real
+       sample rooming lists this was built against had this
+       exact case, since the whole file already represents
+       one group implicitly (one hotel, one stay). Rather
+       than blocking the import, the whole file becomes a
+       single group under whatever name was typed in for
+       this case at Step 2. */
+
+    const noGroupColumnMapped = groupNameCol < 0;
 
     dataRows.forEach((row, rowIndex) => {
 
@@ -436,9 +536,9 @@ function buildGroupsFromMapping() {
         if (isBlankRow) return;
 
         const rawGroupName =
-            groupNameCol >= 0
-                ? String(row[groupNameCol] || "").trim()
-                : "";
+            noGroupColumnMapped
+                ? (importState.singleGroupName || "").trim()
+                : String(row[groupNameCol] || "").trim();
 
         if (!rawGroupName) {
 
@@ -462,7 +562,10 @@ function buildGroupsFromMapping() {
                         ? String(row[agentCol] || "").trim()
                         : "",
                 rooms: [],
-                duplicateOfExisting: false
+                checkInDates:  [],
+                checkOutDates: [],
+                duplicateOfExisting: false,
+                originalGroupName: rawGroupName
 
             };
 
@@ -472,10 +575,26 @@ function buildGroupsFromMapping() {
         const roomNo =
             roomCol >= 0 ? String(row[roomCol] || "").trim() : "";
 
-        const pax =
-            paxCol >= 0
-                ? Number(row[paxCol]) || 1
-                : 1;
+        /* Pax wins if it's actually mapped and has a real
+           value on this row; Occupancy Type is the
+           fallback, converting SINGLE/DOUBLE/TRIPLE-style
+           words into a count - confirmed necessary
+           directly from two different real rooming lists
+           that had no numeric Pax column at all. */
+
+        let pax = 1;
+
+        if (paxCol >= 0 && Number(row[paxCol])) {
+
+            pax = Number(row[paxCol]);
+
+        } else if (occupancyCol >= 0) {
+
+            const converted =
+                occupancyTypeToPax(row[occupancyCol]);
+
+            if (converted) pax = converted;
+        }
 
         const children =
             childrenCol >= 0
@@ -492,13 +611,50 @@ function buildGroupsFromMapping() {
                 ? rawMeal
                 : "";
 
+        /* Guest Name wins if mapped directly; otherwise
+           First + Last combine into one, confirmed
+           necessary from a real rooming list that split
+           them ("Name as per Aadhar" style columns). */
+
+        let guestName = "";
+
+        if (guestCol >= 0) {
+
+            guestName = String(row[guestCol] || "").trim();
+
+        } else if (firstNameCol >= 0 || lastNameCol >= 0) {
+
+            const first =
+                firstNameCol >= 0
+                    ? String(row[firstNameCol] || "").trim()
+                    : "";
+
+            const last =
+                lastNameCol >= 0
+                    ? String(row[lastNameCol] || "").trim()
+                    : "";
+
+            guestName = (first + " " + last).trim();
+        }
+
+        if (checkInCol >= 0 && row[checkInCol]) {
+
+            const date = normalizeImportDate(row[checkInCol]);
+
+            if (date) groupsByKey[key].checkInDates.push(date);
+        }
+
+        if (checkOutCol >= 0 && row[checkOutCol]) {
+
+            const date = normalizeImportDate(row[checkOutCol]);
+
+            if (date) groupsByKey[key].checkOutDates.push(date);
+        }
+
         groupsByKey[key].rooms.push({
 
             roomNo:            roomNo,
-            guestName:
-                guestCol >= 0
-                    ? String(row[guestCol] || "").trim()
-                    : "",
+            guestName:         guestName,
             pax:               pax,
             children:          children,
             meal:              meal,
@@ -516,6 +672,31 @@ function buildGroupsFromMapping() {
                     : ""
 
         });
+
+    });
+
+    /* Per-row check-in/out dates, when present, become
+       that GROUP's own arrival/departure - the earliest
+       check-in seen and the latest check-out seen across
+       all its rows - rather than forcing every imported
+       group through one batch-wide date regardless of what
+       the source file actually said. Falls back to the
+       batch date when a group's rows had no per-row dates
+       at all. */
+
+    orderedKeys.forEach(key => {
+
+        const group = groupsByKey[key];
+
+        group.arrivalDate =
+            group.checkInDates.length > 0
+                ? group.checkInDates.slice().sort()[0]
+                : importState.arrivalDate;
+
+        group.departureDate =
+            group.checkOutDates.length > 0
+                ? group.checkOutDates.slice().sort().pop()
+                : "";
 
     });
 
@@ -537,6 +718,7 @@ function buildGroupsFromMapping() {
             if (seen[room.roomNo]) {
 
                 warnings.push(
+
                     group.groupName +
                     ": duplicate room number " +
                     room.roomNo + "."
@@ -620,11 +802,17 @@ function commitImportedGroups() {
                       Math.floor(Math.random() * 1000),
             status:        "Pending",
             groupName:     group.groupName,
-            arrivalDate:   importState.arrivalDate,
+            arrivalDate:   group.arrivalDate || importState.arrivalDate,
             departureDate:
-                typeof addDaysToDate === "function"
-                    ? addDaysToDate(importState.arrivalDate, 1)
-                    : "",
+                group.departureDate ||
+                (
+                    typeof addDaysToDate === "function"
+                        ? addDaysToDate(
+                            group.arrivalDate ||
+                                importState.arrivalDate, 1
+                        )
+                        : ""
+                ),
             agent:         group.agent || "",
             preparedBy:    "Front Office",
             notes:         "Imported from spreadsheet.",
@@ -748,6 +936,8 @@ async function handleImportFileSelected(file) {
 
         renderColumnMappingStep();
 
+        updateSingleGroupNameVisibility();
+
         showImportStep(2);
 
     } catch (error) {
@@ -860,9 +1050,25 @@ function renderColumnMappingStep() {
 }
 
 
+function updateSingleGroupNameVisibility() {
+
+    const wrap =
+        document.getElementById("importSingleGroupNameWrap");
+
+    if (!wrap) return;
+
+    const hasGroupColumn =
+        getMappedColumnIndex("groupName") >= 0;
+
+    wrap.style.display = hasGroupColumn ? "none" : "";
+}
+
+
 function changeImportColumnMapping(index, value) {
 
     importState.mapping[index] = value;
+
+    updateSingleGroupNameVisibility();
 }
 
 
@@ -875,6 +1081,8 @@ function changeImportHeaderRow(value) {
     importState.headerRow = rowNumber - 1;
 
     renderColumnMappingStep();
+
+    updateSingleGroupNameVisibility();
 }
 
 
@@ -888,13 +1096,22 @@ async function proceedToImportReview() {
 
     if (groupNameCol < 0) {
 
-        await showAlert(
-            "Map one column to \"Group Name\" before " +
-            "continuing - it's what splits the file into " +
-            "separate groups."
-        );
+        const singleName =
+            document.getElementById("importSingleGroupName")
+                ?.value.trim() || "";
 
-        return;
+        if (!singleName) {
+
+            await showAlert(
+                "No column is mapped to \"Group Name\" - " +
+                "either map one, or enter a name for the " +
+                "whole file above (it will become one group)."
+            );
+
+            return;
+        }
+
+        importState.singleGroupName = singleName;
     }
 
     const arrivalDate =
@@ -904,8 +1121,9 @@ async function proceedToImportReview() {
     if (!arrivalDate) {
 
         await showAlert(
-            "Set the arrival date to apply to every " +
-            "imported group."
+            "Set the fallback arrival date - used for any " +
+            "group whose rows don't have their own " +
+            "Check-in Date mapped."
         );
 
         return;
@@ -915,9 +1133,51 @@ async function proceedToImportReview() {
 
     const result = buildGroupsFromMapping();
 
-    renderImportReview(result.warnings);
+    importState.warnings = result.warnings;
+
+    renderImportReview(importState.warnings);
 
     showImportStep(3);
+}
+
+
+function renameImportGroup(index, newName) {
+
+    const group = importState.groups[index];
+
+    if (!group) return;
+
+    const clean = String(newName || "").trim();
+
+    if (!clean) return;
+
+    group.groupName = clean;
+
+    const existingNames =
+        (typeof GroupRepository !== "undefined"
+            ? GroupRepository.getAll()
+            : []
+        ).map(g => (g.groupName || "").toLowerCase());
+
+    group.duplicateOfExisting =
+        existingNames.indexOf(clean.toLowerCase()) >= 0;
+
+    /* Also guard against the renamed group now colliding
+       with ANOTHER group already detected in this same
+       import batch, not just previously-saved ones. */
+
+    const collidesWithinBatch =
+        importState.groups.some((other, otherIndex) =>
+            otherIndex !== index &&
+            other.groupName.toLowerCase() === clean.toLowerCase()
+        );
+
+    if (collidesWithinBatch) {
+
+        group.duplicateOfExisting = true;
+    }
+
+    renderImportReview(importState.warnings);
 }
 
 
@@ -943,7 +1203,7 @@ function renderImportReview(warnings) {
 
     let willCreate = 0;
 
-    importState.groups.forEach(group => {
+    importState.groups.forEach((group, index) => {
 
         const pax =
             group.rooms.reduce(
@@ -954,7 +1214,13 @@ function renderImportReview(warnings) {
 
             rows += `
             <tr class="import-row-skipped">
-                <td>${group.groupName}</td>
+                <td>
+                    <input
+                        type="text"
+                        class="import-rename-input"
+                        value="${escapeHTML(group.groupName)}"
+                        onchange="renameImportGroup(${index}, this.value)">
+                </td>
                 <td>${group.rooms.length}</td>
                 <td>${pax}</td>
                 <td>
@@ -971,7 +1237,7 @@ function renderImportReview(warnings) {
 
             rows += `
             <tr>
-                <td>${group.groupName}</td>
+                <td>${escapeHTML(group.groupName)}</td>
                 <td>${group.rooms.length}</td>
                 <td>${pax}</td>
                 <td>

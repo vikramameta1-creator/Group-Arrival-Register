@@ -1787,21 +1787,37 @@
                     title="Data starts at row">
 
                 <label class="sr-label" for="importArrivalDate">
-                    Arrival date for all imported groups
+                    Fallback arrival date
                 </label>
 
                 <input
                     type="date"
                     id="importArrivalDate"
-                    title="Arrival date for all imported groups">
+                    title="Fallback arrival date - used when a group has no Check-in Date mapped">
 
             </div>
 
             <p class="muted-note">
-                One column must be mapped to
-                <strong>Group Name</strong> — it's what
-                splits the file into separate groups.
+                Map one column to <strong>Group Name</strong>
+                to split the file into separate groups — or,
+                if your file only has one group in it (common
+                with hotel-sent rooming lists), leave it
+                unmapped and just name the whole file below.
             </p>
+
+            <div id="importSingleGroupNameWrap" class="action-bar">
+
+                <label class="sr-label" for="importSingleGroupName">
+                    Group name for the whole file
+                </label>
+
+                <input
+                    type="text"
+                    id="importSingleGroupName"
+                    placeholder="Group name for the whole file"
+                    style="flex:1 1 260px;">
+
+            </div>
 
             <div id="importMappingBody"></div>
 

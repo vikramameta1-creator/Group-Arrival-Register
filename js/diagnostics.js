@@ -139,7 +139,9 @@ const MODULE_MANIFEST = {
         "commitImportedGroups", "openImportModal",
         "closeImportModal", "handleImportFileSelected",
         "renderColumnMappingStep", "proceedToImportReview",
-        "renderImportReview", "confirmImportGroups"
+        "renderImportReview", "confirmImportGroups",
+        "occupancyTypeToPax", "normalizeImportDate",
+        "renameImportGroup", "updateSingleGroupNameVisibility"
     ],
 
     "app.js": [
@@ -222,6 +224,7 @@ const CRITICAL_ELEMENTS = [
     "btnCloseImportModal", "importFileInput",
     "importUploadStatus", "importHeaderRowInput",
     "importArrivalDate", "importMappingBody",
+    "importSingleGroupNameWrap", "importSingleGroupName",
     "btnImportToReview", "importReviewBody",
     "btnImportBackToMapping", "btnConfirmImport",
     "importDoneBody", "btnFinishImport",

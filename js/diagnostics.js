@@ -56,7 +56,8 @@ const MODULE_MANIFEST = {
         "applyRoomMasterLock", "renderCategoryRates",
         "changeCategoryRate", "changeRateCurrency",
         "renderAgentPanels", "changeAgentRate",
-        "addMasterAgent"
+        "addMasterAgent", "addSeasonalRateEntry",
+        "deleteSeasonalRateEntry", "renderSeasonalRatesList"
     ],
 
     "register.js": [
@@ -97,7 +98,8 @@ const MODULE_MANIFEST = {
         "getInventorySnapshot", "buildDateOccupancy",
         "buildNightsInRange", "buildConflictSummary",
         "renderConflictReport", "exportReportsCSV",
-        "renderCategoryReport", "initializeReports"
+        "renderCategoryReport", "initializeReports",
+        "buildRevenueStats", "renderRevenueSummary"
     ],
 
     "groups.js": [
@@ -121,6 +123,23 @@ const MODULE_MANIFEST = {
         "downloadAttachment", "reconcileAttachmentGroupId",
         "getActiveAttachmentGroupId", "resetAttachmentSession",
         "renderAttachmentsPanel", "initializeAttachmentEvents"
+    ],
+
+    "rates.js": [
+        "resolveNightlyRate", "reconcileRoomCalendar",
+        "reconcileAllRateCalendars", "changeNightlyMealPlan",
+        "changeNightlyRate", "resetNightlyOverride",
+        "renderRatesPanel", "getRateCalendarsForSave",
+        "loadRateCalendarsFromGroup", "resetRateCalendarState"
+    ],
+
+    "import.js": [
+        "parseCSVText", "readImportFile", "detectHeaderRow",
+        "buildSuggestedMapping", "buildGroupsFromMapping",
+        "commitImportedGroups", "openImportModal",
+        "closeImportModal", "handleImportFileSelected",
+        "renderColumnMappingStep", "proceedToImportReview",
+        "renderImportReview", "confirmImportGroups"
     ],
 
     "app.js": [
@@ -190,11 +209,25 @@ const CRITICAL_ELEMENTS = [
     "reportArrivalSummary", "reportMealSummary",
     "reportOccupancySummary", "reportCategorySummary",
     "reportConflictSummary",
+    "reportRevenueSummary",
     "categoryRatesBody", "rateCurrencySelect",
     "agentListBody", "agentRateSelect",
     "agentRateCardBody",
+    "seasonalCategorySelect", "seasonalOccupancyInput",
+    "seasonalDateFrom", "seasonalDateTo",
+    "seasonalRate_EP", "seasonalRate_CP",
+    "seasonalRate_MAP", "seasonalRate_AP",
+    "btnAddSeasonalRate", "seasonalRatesBody",
+    "btnOpenImportModal", "importModal",
+    "btnCloseImportModal", "importFileInput",
+    "importUploadStatus", "importHeaderRowInput",
+    "importArrivalDate", "importMappingBody",
+    "btnImportToReview", "importReviewBody",
+    "btnImportBackToMapping", "btnConfirmImport",
+    "importDoneBody", "btnFinishImport",
     "attachmentDropZone", "attachmentFileInput",
     "attachmentsList",
+    "ratesPanelBody", "btnRefreshRates",
     "groupSearchModal", "groupSearchModalInput",
     "groupSearchModalResults",
     "savedGroupsStatus", "savedGroupsDateFrom",

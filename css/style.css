@@ -293,6 +293,18 @@ body{
 
 }
 
+.report-note{
+
+    color:var(--muted);
+
+    font-size:11px;
+
+    margin-top:10px;
+
+    line-height:1.5;
+
+}
+
 .muted-note code{
 
     background:var(--secondary);
@@ -1029,6 +1041,30 @@ body{
     flex-direction:column;
 
     box-shadow:0 10px 40px rgba(0,0,0,0.3);
+
+}
+
+.import-modal-box{
+
+    width:min(760px, 94vw);
+
+    padding:0 20px 20px;
+
+    overflow-y:auto;
+
+}
+
+.import-step .action-bar{
+
+    margin-top:10px;
+
+}
+
+.import-row-skipped td{
+
+    color:var(--muted);
+
+    text-decoration:line-through;
 
 }
 
@@ -2865,6 +2901,189 @@ body{
     color:var(--muted);
 
     font-weight:400;
+
+}
+
+/* =====================================================
+   RATE CALENDAR (Register Tools)
+
+   Per-room, per-night. See js/rates.js.
+===================================================== */
+
+.rates-panel{
+
+    margin-top:20px;
+
+    background:var(--panel-bg, #fff);
+
+    border:1px solid var(--border);
+
+    border-radius:10px;
+
+    padding:16px 20px;
+
+}
+
+.rate-room-block{
+
+    margin-top:16px;
+
+    padding-top:12px;
+
+    border-top:1px solid var(--border);
+
+}
+
+.rate-room-block:first-child{
+
+    margin-top:8px;
+
+    padding-top:0;
+
+    border-top:none;
+
+}
+
+.rate-room-header{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:8px;
+
+    margin-bottom:8px;
+
+}
+
+.rate-room-total{
+
+    margin-left:auto;
+
+    font-weight:700;
+
+}
+
+.rate-calendar-table th,
+.rate-calendar-table td{
+
+    font-size:12px;
+
+    padding:6px 8px;
+
+    text-align:center;
+
+}
+
+.rate-calendar-table select,
+.rate-calendar-table input{
+
+    width:100%;
+
+    box-sizing:border-box;
+
+}
+
+.rate-source-badge{
+
+    display:inline-block;
+
+    padding:2px 8px;
+
+    border-radius:999px;
+
+    font-size:10px;
+
+    font-weight:700;
+
+    text-transform:uppercase;
+
+}
+
+.rate-badge-default{
+
+    background:#eef2f7;
+
+    color:var(--muted);
+
+}
+
+.rate-badge-agent{
+
+    background:#e3f0fc;
+
+    color:var(--primary);
+
+}
+
+.rate-badge-seasonal{
+
+    background:#f3e8fd;
+
+    color:#6f2dbd;
+
+}
+
+.rate-badge-overridden{
+
+    background:#fff3cd;
+
+    color:#8a6100;
+
+}
+
+.rate-badge-foc,
+.rate-badge-foc-tag{
+
+    background:#e6f4ea;
+
+    color:#1e7e34;
+
+}
+
+.rate-badge-foc-tag{
+
+    display:inline-block;
+
+    padding:2px 8px;
+
+    border-radius:999px;
+
+    font-size:10px;
+
+    font-weight:700;
+
+}
+
+.rate-reset-btn{
+
+    background:none;
+
+    border:none;
+
+    cursor:pointer;
+
+    font-size:13px;
+
+    color:var(--primary);
+
+    margin-left:4px;
+
+}
+
+.rate-grand-total{
+
+    margin-top:16px;
+
+    padding-top:12px;
+
+    border-top:2px solid var(--border);
+
+    text-align:right;
+
+    font-size:15px;
+
+    font-weight:700;
 
 }
 

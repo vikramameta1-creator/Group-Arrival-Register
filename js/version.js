@@ -66,6 +66,8 @@ const EXPECTED_MODULES = {
     "report-print.js": "1.0.0",
     "groups.js":       "1.0.0",
     "attachments.js":  "1.0.0",
+    "rates.js":        "1.0.0",
+    "import.js":       "1.0.0",
     "app.js":          "1.0.0",
     "shortcuts.js":    "1.0.0",
     "diagnostics.js":  "1.0.0"

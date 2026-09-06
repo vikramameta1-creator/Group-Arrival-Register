@@ -38,7 +38,7 @@
 
 const APP_NAME = "Group Arrival Register";
 
-const APP_VERSION = "1.0.0";
+const APP_VERSION = "1.1.0";
 
 const APP_BUILD = "2026-07-30";
 
@@ -55,7 +55,7 @@ const APP_SUITE = "Hotel Operations Suite";
 
 const EXPECTED_MODULES = {
 
-    "version.js":      "1.0.0",
+    "version.js":      "1.1.0",
     "dialog.js":       "1.0.0",
     "database.js":     "1.0.0",
     "printing.js":     "1.0.0",

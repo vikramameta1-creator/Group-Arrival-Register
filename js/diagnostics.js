@@ -126,7 +126,8 @@ const MODULE_MANIFEST = {
     ],
 
     "rates.js": [
-        "resolveNightlyRate", "reconcileRoomCalendar",
+        "resolveNightlyRate", "resolveRoomRate",
+        "reconcileRoomCalendar",
         "reconcileAllRateCalendars", "changeNightlyMealPlan",
         "changeNightlyRate", "resetNightlyOverride",
         "renderRatesPanel", "getRateCalendarsForSave",
@@ -141,7 +142,8 @@ const MODULE_MANIFEST = {
         "renderColumnMappingStep", "proceedToImportReview",
         "renderImportReview", "confirmImportGroups",
         "occupancyTypeToPax", "normalizeImportDate",
-        "renameImportGroup", "updateSingleGroupNameVisibility"
+        "renameImportGroup", "updateSingleGroupNameVisibility",
+        "requestImportConfirmation", "cancelImportConfirmation"
     ],
 
     "app.js": [
@@ -228,6 +230,9 @@ const CRITICAL_ELEMENTS = [
     "btnImportToReview", "importReviewBody",
     "btnImportBackToMapping", "btnConfirmImport",
     "importDoneBody", "btnFinishImport",
+    "importValidationWarning", "importConfirmBar",
+    "importConfirmInline", "btnImportConfirmCancel",
+    "btnImportConfirmYes",
     "attachmentDropZone", "attachmentFileInput",
     "attachmentsList",
     "ratesPanelBody", "btnRefreshRates",

@@ -113,7 +113,7 @@ function getLiveGroupDates() {
 }
 
 
-function resolveNightlyRate(room, mealPlan) {
+function resolveRoomRate(room, mealPlan, date, agent) {
 
     if (room.foc) {
 
@@ -139,23 +139,41 @@ function resolveNightlyRate(room, mealPlan) {
             rule.maxOccupancy || 1
         );
 
-    const agent =
-        (
-            document.getElementById("agentCompany")
-                ?.value || ""
-        ).trim();
+    const cleanAgent = (agent || "").trim();
+
+    /* Seasonal beats the agent's standing rate, which
+       beats the category default - checked in that order,
+       every time. A night with no date to check against
+       (shouldn't normally happen, defensive only) just
+       skips straight to the standing rate. */
+
+    if (cleanAgent && date) {
+
+        const season =
+            RoomMasterRepository.findSeasonalRate(
+                cleanAgent, category, occupancy, mealPlan, date
+            );
+
+        if (season) {
+
+            return {
+                rate: Number(season.rate) || 0,
+                source: "Seasonal"
+            };
+        }
+    }
 
     if (
-        agent &&
+        cleanAgent &&
         RoomMasterRepository.hasAgentOverride(
-            agent, category, occupancy, mealPlan
+            cleanAgent, category, occupancy, mealPlan
         )
     ) {
 
         return {
             rate:
                 RoomMasterRepository.getAgentRate(
-                    agent, category, occupancy, mealPlan
+                    cleanAgent, category, occupancy, mealPlan
                 ),
             source: "Agent"
         };
@@ -168,6 +186,28 @@ function resolveNightlyRate(room, mealPlan) {
             ),
         source: "Default"
     };
+}
+
+
+/* Thin wrapper kept for every existing call site in this
+   file - all of them operate on whatever group is currently
+   open in the register, so reading the agent straight from
+   its own form field is correct there. Reporting on OTHER
+   saved groups (buildRevenueStats, for one that has never
+   been opened and so never had a calendar built) needs the
+   agent to come from the group's own data instead - that's
+   what resolveRoomRate() above is for, called directly with
+   an explicit agent rather than through this wrapper. */
+
+function resolveNightlyRate(room, mealPlan, date) {
+
+    const agent =
+        (
+            document.getElementById("agentCompany")
+                ?.value || ""
+        ).trim();
+
+    return resolveRoomRate(room, mealPlan, date, agent);
 }
 
 
@@ -218,29 +258,50 @@ function reconcileRoomCalendar(room, groupDates) {
         if (!entry) {
 
             const resolved =
-                resolveNightlyRate(room, room.meal || "EP");
+                resolveNightlyRate(
+                    room, room.meal || "EP", date
+                );
 
             entry = {
 
-                date:       date,
-                mealPlan:   room.meal || "EP",
-                rate:       resolved.rate,
-                overridden: false
+                date:            date,
+                mealPlan:        room.meal || "EP",
+                rate:            resolved.rate,
+                overridden:      false,
+                mealPlanTouched: false
 
             };
 
-        } else if (!entry.overridden) {
+        } else {
 
-            /* Not frozen - keep it in sync with whatever
-               would currently be resolved, so a change to
-               FOC, the agent, or the rate cards themselves
-               flows through without staff needing to
-               re-visit every night by hand. */
+            /* Meal plan and rate are tracked separately on
+               purpose. A night explicitly changed within
+               the rate panel itself (mealPlanTouched) stays
+               exactly as staff set it, supporting genuinely
+               different meal plans on different nights of
+               the same stay. A night that was never touched
+               here should keep following the register's
+               main Meal dropdown - otherwise the calendar
+               silently goes stale the moment the register
+               changes after the calendar was first built,
+               which is what actually happened here: room
+               104 showed CP after the register had already
+               moved to MAP. */
 
-            const resolved =
-                resolveNightlyRate(room, entry.mealPlan);
+            if (!entry.mealPlanTouched) {
 
-            entry.rate = resolved.rate;
+                entry.mealPlan = room.meal || entry.mealPlan;
+            }
+
+            if (!entry.overridden) {
+
+                const resolved =
+                    resolveNightlyRate(
+                        room, entry.mealPlan, date
+                    );
+
+                entry.rate = resolved.rate;
+            }
 
         }
 
@@ -322,6 +383,8 @@ function changeNightlyMealPlan(roomNo, date, value) {
 
     entry.mealPlan = value;
 
+    entry.mealPlanTouched = true;
+
     if (!entry.overridden) {
 
         const room = findLiveRoom(roomNo);
@@ -329,7 +392,7 @@ function changeNightlyMealPlan(roomNo, date, value) {
         if (room) {
 
             const resolved =
-                resolveNightlyRate(room, value);
+                resolveNightlyRate(room, value, date);
 
             entry.rate = resolved.rate;
         }
@@ -373,12 +436,14 @@ function resetNightlyOverride(roomNo, date) {
 
     entry.overridden = false;
 
+    entry.mealPlanTouched = false;
+
     const room = findLiveRoom(roomNo);
 
     if (room) {
 
         const resolved =
-            resolveNightlyRate(room, entry.mealPlan);
+            resolveNightlyRate(room, entry.mealPlan, date);
 
         entry.rate = resolved.rate;
     }
@@ -451,24 +516,26 @@ function renderRatesPanel() {
 
         nights.forEach(entry => {
 
-            const badgeClass =
-                entry.overridden
-                    ? "rate-badge-overridden"
-                    : entry.mealPlan &&
-                      resolveNightlyRate(
-                          room, entry.mealPlan
-                      ).source === "FOC"
-                        ? "rate-badge-foc"
-                        : "rate-badge-default";
-
-            const source =
+            const resolvedSource =
                 room.foc
                     ? "FOC"
                     : entry.overridden
                         ? "Overridden"
                         : resolveNightlyRate(
-                              room, entry.mealPlan
+                              room, entry.mealPlan, entry.date
                           ).source;
+
+            const source = resolvedSource;
+
+            const badgeClass =
+                {
+                    "FOC":        "rate-badge-foc",
+                    "Overridden": "rate-badge-overridden",
+                    "Seasonal":   "rate-badge-seasonal",
+                    "Agent":      "rate-badge-agent",
+                    "Default":    "rate-badge-default",
+                    "Unassigned": "rate-badge-default"
+                }[resolvedSource] || "rate-badge-default";
 
             const mealOptions =
                 RATE_MEAL_PLANS

@@ -375,13 +375,6 @@ function buildDateOccupancy(groups) {
 
     groups.forEach(group => {
 
-        const nights = buildNightsInRange(
-            group.arrivalDate || "",
-            group.departureDate || ""
-        );
-
-        if (nights.length === 0) return;
-
         const groupName =
             group.groupName || "Unnamed Group";
 
@@ -391,34 +384,54 @@ function buildDateOccupancy(groups) {
 
         if (realRooms.length === 0) return;
 
-        nights.forEach(date => {
+        /* Nights are now computed PER ROOM, not once per
+           group - a room with its own checkout override
+           (room.departureOverride, set via the "Different
+           checkout" toggle in the register) leaves the
+           stay on its own date, not the group's general
+           one. getRoomDepartureDate() already carries this
+           precedence correctly - reused here unchanged,
+           same as the auto Checked-Out transition in
+           groups.js already relies on it. */
 
-            if (!byDate[date]) {
+        realRooms.forEach(room => {
 
-                byDate[date] = {
-                    date:       date,
-                    groups:     0,
-                    groupsSeen: {},
-                    claimed:    {},
-                    rooms:      0
-                };
-            }
+            const roomNo =
+                String(room.roomNo || "").trim();
 
-            const entry = byDate[date];
+            if (!roomNo) return;
 
-            if (!entry.groupsSeen[groupName]) {
+            const departure =
+                typeof getRoomDepartureDate === "function"
+                    ? getRoomDepartureDate(group, room)
+                    : (group.departureDate || "");
 
-                entry.groupsSeen[groupName] = true;
+            const nights = buildNightsInRange(
+                group.arrivalDate || "",
+                departure
+            );
 
-                entry.groups++;
-            }
+            nights.forEach(date => {
 
-            realRooms.forEach(room => {
+                if (!byDate[date]) {
 
-                const roomNo =
-                    String(room.roomNo || "").trim();
+                    byDate[date] = {
+                        date:       date,
+                        groups:     0,
+                        groupsSeen: {},
+                        claimed:    {},
+                        rooms:      0
+                    };
+                }
 
-                if (!roomNo) return;
+                const entry = byDate[date];
+
+                if (!entry.groupsSeen[groupName]) {
+
+                    entry.groupsSeen[groupName] = true;
+
+                    entry.groups++;
+                }
 
                 const owner = entry.claimed[roomNo];
 
@@ -478,6 +491,180 @@ function buildDateOccupancy(groups) {
    STATISTICS BUILDER
 ===================================================== */
 
+/* =====================================================
+   REVENUE / ADR / REVPAR
+
+   Phase 4 of the rate system - reads what rates.js (per-
+   room, per-night calendars) and room-master.js (rate
+   cards, inventory) already built. Nothing new is stored
+   here, this only aggregates.
+
+   ADR excludes FOC nights from both revenue and the sold-
+   nights denominator - a complimentary room has zero
+   revenue by definition, and including it would silently
+   deflate the average rate actually being achieved on
+   paid rooms. FOC nights are still counted and shown
+   separately, for visibility, matching how FOC has always
+   stayed visible everywhere else in this app rather than
+   being hidden away.
+
+   RevPAR uses real per-night data now that Phase 3 exists,
+   rather than falling back to the older "measured per
+   arrival date" convention Occupancy used before per-night
+   tracking existed at all - available room-nights is
+   (total inventory) x (distinct nights actually spanned by
+   the groups in scope), which is the standard definition.
+
+   Reused unchanged by both Current Group and All Groups
+   scope, same as buildDateOccupancy() already is - accepts
+   an array of {rooms, rateCalendars} and doesn't care
+   whether that came from saved groups or the live,
+   unsaved register.
+===================================================== */
+
+function buildRevenueStats(groups) {
+
+    const stats = {
+
+        totalRevenue:   0,
+        soldRoomNights: 0,
+        focRoomNights:  0,
+        adr:            0,
+        revPAR:         0,
+        nightsSpanned:  0,
+        currency:       "INR",
+        symbol:         "₹"
+
+    };
+
+    if (typeof RoomMasterRepository !== "undefined") {
+
+        stats.currency =
+            RoomMasterRepository.getRateCurrency();
+
+        stats.symbol =
+            (
+                typeof RATE_CURRENCIES !== "undefined" &&
+                RATE_CURRENCIES[stats.currency]
+            ) || stats.currency;
+    }
+
+    const datesInScope = {};
+
+    (groups || []).forEach(group => {
+
+        const calendars = group.rateCalendars || {};
+
+        (group.rooms || []).forEach(room => {
+
+            if (
+                typeof isEmptyRegisterRow === "function" &&
+                isEmptyRegisterRow(room)
+            ) {
+
+                return;
+            }
+
+            const roomNo = String(room.roomNo || "").trim();
+
+            const existingNights = calendars[roomNo];
+
+            let nightsToProcess;
+
+            if (existingNights && existingNights.length > 0) {
+
+                /* Already reconciled - the group was opened
+                   in the register at some point, so use its
+                   real, saved rate calendar exactly as
+                   before. */
+
+                nightsToProcess = existingNights;
+
+            } else {
+
+                /* Never reconciled - most commonly a group
+                   created by CSV/Excel import that's never
+                   been opened. Rather than silently
+                   contributing zero, compute what WOULD
+                   apply, in memory only, using the same
+                   resolution order the live register uses -
+                   nothing here is written back to the group. */
+
+                const departure =
+                    typeof getRoomDepartureDate === "function"
+                        ? getRoomDepartureDate(group, room)
+                        : (group.departureDate || "");
+
+                const stayDates =
+                    buildNightsInRange(
+                        group.arrivalDate || "", departure
+                    );
+
+                nightsToProcess =
+                    stayDates.map(date => {
+
+                        const resolved =
+                            typeof resolveRoomRate === "function"
+                                ? resolveRoomRate(
+                                    room, room.meal || "EP",
+                                    date, group.agent
+                                  )
+                                : { rate: 0 };
+
+                        return {
+                            date: date,
+                            rate: resolved.rate
+                        };
+                    });
+            }
+
+            nightsToProcess.forEach(night => {
+
+                datesInScope[night.date] = true;
+
+                if (room.foc) {
+
+                    stats.focRoomNights++;
+
+                } else {
+
+                    stats.totalRevenue +=
+                        Number(night.rate) || 0;
+
+                    stats.soldRoomNights++;
+                }
+
+            });
+
+        });
+
+    });
+
+    stats.nightsSpanned =
+        Object.keys(datesInScope).length;
+
+    stats.adr =
+        stats.soldRoomNights > 0
+            ? stats.totalRevenue / stats.soldRoomNights
+            : 0;
+
+    const inventory =
+        typeof RoomMasterRepository !== "undefined"
+            ? RoomMasterRepository.totalRooms()
+            : 0;
+
+    const availableRoomNights =
+        inventory * stats.nightsSpanned;
+
+    stats.revPAR =
+        availableRoomNights > 0
+            ? stats.totalRevenue / availableRoomNights
+            : 0;
+
+    return stats;
+}
+
+
 function buildReportStats() {
 
     const stats = {
@@ -509,7 +696,8 @@ function buildReportStats() {
         uniqueRooms:  0,
         departureDate: "",
         stayNights:   [],
-        stayConflicts: []
+        stayConflicts: [],
+        revenue:      buildRevenueStats([])
 
     };
 
@@ -582,13 +770,19 @@ function buildReportStats() {
                                "Current Group (unsaved)",
                 arrivalDate:   stats.arrivalDate,
                 departureDate: stats.departureDate,
-                rooms:         rows
+                rooms:         rows,
+                rateCalendars:
+                    typeof rateCalendarState !== "undefined"
+                        ? rateCalendarState
+                        : {}
             };
 
             const combined =
                 buildDateOccupancy(
                     [liveGroup].concat(otherGroups)
                 );
+
+            stats.revenue = buildRevenueStats([liveGroup]);
 
             const myNights =
                 buildNightsInRange(
@@ -652,6 +846,8 @@ function buildReportStats() {
         stats.dateRows  = occupancy.dates;
 
         stats.conflicts = occupancy.conflicts;
+
+        stats.revenue = buildRevenueStats(groups);
 
     }
 
@@ -1683,6 +1879,8 @@ function updateReports() {
 
     renderConflictReport(stats);
 
+    renderRevenueSummary(stats);
+
 }
 
 
@@ -1745,6 +1943,71 @@ function buildConflictSummary(conflicts) {
    inside Occupancy Summary, so a real double booking
    isn't easy to miss.
 ===================================================== */
+
+function formatRevenueAmount(amount, symbol) {
+
+    return symbol + " " +
+        Math.round(Number(amount) || 0).toLocaleString();
+}
+
+
+function renderRevenueSummary(stats) {
+
+    const target =
+        document.getElementById("reportRevenueSummary");
+
+    if (!target) return;
+
+    const revenue = stats.revenue;
+
+    if (
+        revenue.soldRoomNights === 0 &&
+        revenue.focRoomNights === 0
+    ) {
+
+        target.innerHTML =
+            buildEmptyState(
+                "No rate data for this scope yet. Set " +
+                "rates in Room Master and check the Rate " +
+                "Calendar on Register Tools.",
+                "Go to Register Tools",
+                "registerToolsPage"
+            );
+
+        return;
+    }
+
+    let html = buildStatRows([
+
+        ["Room Revenue",
+         "<strong>" +
+         formatRevenueAmount(
+             revenue.totalRevenue, revenue.symbol
+         ) +
+         "</strong>"],
+
+        ["ADR (Average Daily Rate)",
+         formatRevenueAmount(revenue.adr, revenue.symbol)],
+
+        ["RevPAR",
+         formatRevenueAmount(revenue.revPAR, revenue.symbol)],
+
+        ["Room-Nights Sold", revenue.soldRoomNights],
+
+        ["FOC Room-Nights", revenue.focRoomNights]
+
+    ]);
+
+    html +=
+        `<p class="report-note">
+            Internal only — never appears on any printed
+            document. ADR excludes FOC nights from both
+            revenue and the sold-nights count.
+         </p>`;
+
+    target.innerHTML = html;
+}
+
 
 function renderConflictReport(stats) {
 

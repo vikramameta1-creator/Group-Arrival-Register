@@ -569,12 +569,52 @@ async function printRegister() {
 
     rows.forEach((row, index) => {
 
+        /* FOC, Checked Out, and a checkout override all
+           follow the exact same convention VIP already
+           established here - a bold bracketed tag right
+           after the guest name, not a new column. Keeps
+           the printed table the same width regardless of
+           how many flags apply to a given row. */
+
+        const flags =
+            (row.vip ? " <strong>[VIP]</strong>" : "") +
+            (row.foc ? " <strong>[FOC]</strong>" : "") +
+            (row.checkedOut
+                ? " <strong>[CHECKED OUT]</strong>"
+                : "") +
+            (row.departureOverride
+                ? " <strong>[DEP: " +
+                    escapeHTML(row.departureOverride) +
+                    "]</strong>"
+                : "");
+
+        /* Pax was already the combined adults+children
+           total - it just never showed the split, which is
+           the actual thing "no kids in the print" was
+           asking for. Kept inline in the same cell rather
+           than a new column, same reasoning as the flags
+           above: an 8th column would widen an already
+           7-column table on a printed page. Plain number
+           when there are no children, so the common case
+           stays uncluttered. */
+
+        const children = Number(row.children) || 0;
+
+        const adults =
+            Number(row.adults) || (row.pax - children);
+
+        const paxDisplay =
+            children > 0
+                ? escapeHTML(row.pax) +
+                    " (" + adults + "A + " + children + "C)"
+                : escapeHTML(row.pax);
+
         tableRows += `
         <tr>
             <td>${index + 1}</td>
             <td>${escapeHTML(row.roomNo)}</td>
-            <td>${escapeHTML(row.guestName)}${row.vip ? " <strong>[VIP]</strong>" : ""}</td>
-            <td>${escapeHTML(row.pax)}</td>
+            <td>${escapeHTML(row.guestName)}${flags}</td>
+            <td>${paxDisplay}</td>
             <td>${escapeHTML(row.meal)}</td>
             <td>${escapeHTML(row.mobile)}</td>
             <td></td>
@@ -796,8 +836,19 @@ async function printBlankRegister() {
         <td class="label">Arrival</td>
         <td>&nbsp;</td>
 
+        <td class="label">Status</td>
+        <td>&nbsp;</td>
+    </tr>
+
+    <tr>
         <td class="label">Agent</td>
         <td>&nbsp;</td>
+
+        <td class="label">Prepared By</td>
+        <td>&nbsp;</td>
+
+        <td class="label">Printed</td>
+        <td>${escapeHTML(new Date().toLocaleString())}</td>
     </tr>
 
 </table>
@@ -887,14 +938,26 @@ async function printRoomingList() {
 
     rows.forEach(row => {
 
+        const children = Number(row.children) || 0;
+
+        const adults =
+            Number(row.adults) || (row.pax - children);
+
+        const paxDisplay =
+            children > 0
+                ? escapeHTML(row.pax) +
+                    " (" + adults + "A + " + children + "C)"
+                : escapeHTML(row.pax);
+
         tableRows += `
         <tr>
             <td>${escapeHTML(row.roomNo)}</td>
             <td>${escapeHTML(row.guestName)}</td>
-            <td>${escapeHTML(row.pax)}</td>
+            <td>${paxDisplay}</td>
             <td>${escapeHTML(row.meal)}</td>
             <td>${escapeHTML(row.mobile)}</td>
             <td>${row.vip ? "VIP" : ""}</td>
+            <td>${row.foc ? "FOC" : ""}</td>
             <td>${escapeHTML(row.specialRequest)}</td>
         </tr>
         `;
@@ -915,6 +978,7 @@ ${buildDocumentHeader("ROOMING LIST")}
             <th>Meal</th>
             <th>Mobile No</th>
             <th>VIP</th>
+            <th>FOC</th>
             <th>Special Request</th>
         </tr>
     </thead>
@@ -939,22 +1003,25 @@ table.doc-table th:nth-child(1),
 table.doc-table td:nth-child(1){ width:8%;  text-align:center; }
 
 table.doc-table th:nth-child(2),
-table.doc-table td:nth-child(2){ width:26%; }
+table.doc-table td:nth-child(2){ width:24%; }
 
 table.doc-table th:nth-child(3),
-table.doc-table td:nth-child(3){ width:6%;  text-align:center; }
+table.doc-table td:nth-child(3){ width:9%;  text-align:center; }
 
 table.doc-table th:nth-child(4),
 table.doc-table td:nth-child(4){ width:8%;  text-align:center; }
 
 table.doc-table th:nth-child(5),
-table.doc-table td:nth-child(5){ width:14%; }
+table.doc-table td:nth-child(5){ width:13%; }
 
 table.doc-table th:nth-child(6),
 table.doc-table td:nth-child(6){ width:6%;  text-align:center; font-weight:bold; }
 
 table.doc-table th:nth-child(7),
-table.doc-table td:nth-child(7){ width:32%; }
+table.doc-table td:nth-child(7){ width:6%;  text-align:center; font-weight:bold; }
+
+table.doc-table th:nth-child(8),
+table.doc-table td:nth-child(8){ width:26%; }
 
 table.doc-table td{ height:26px; }
 

@@ -1561,6 +1561,8 @@ body{
 
     flex-wrap:wrap;
 
+    align-items:flex-start;
+
     gap:10px;
 
     background:var(--white);
@@ -1996,6 +1998,23 @@ body{
     padding-bottom:8px;
 
     border-bottom:1px solid var(--border);
+
+}
+
+.action-group-subtitle{
+
+    /* Sits between the title and its buttons - a plain-
+       language, always-visible explanation of what this
+       whole group of buttons does, since a hover-only
+       tooltip is easy to miss entirely. */
+
+    font-size:11.5px;
+
+    color:var(--muted);
+
+    margin:-6px 0 10px;
+
+    line-height:1.4;
 
 }
 

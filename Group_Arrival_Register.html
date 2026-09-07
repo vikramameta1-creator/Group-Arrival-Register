@@ -428,23 +428,38 @@
 
             <div class="action-group-title">Build Register</div>
 
+            <div class="action-group-subtitle">
+                Create the rows for this group's rooms.
+            </div>
+
             <div class="action-bar">
 
                 <input
                     type="number"
                     id="roomCount"
                     placeholder="Rooms"
-                    min="1">
+                    min="1"
+                    title="How many rooms to generate">
 
-                <button id="btnGenerateRows">Generate</button>
+                <button
+                    id="btnGenerateRows"
+                    title="Create that many blank rows, replacing any rows already here">Generate</button>
 
-                <button id="btnAddRow">+ Row</button>
+                <button
+                    id="btnAddRow"
+                    title="Add one more blank row to the bottom">+ Row</button>
 
-                <button onclick="autoGenerateRoomSeries()">Auto Series</button>
+                <button
+                    onclick="autoGenerateRoomSeries()"
+                    title="Fill in sequential room numbers for every row, starting from one you enter">Auto Series</button>
 
-                <button onclick="sortRooms()">Sort</button>
+                <button
+                    onclick="sortRooms()"
+                    title="Reorder rows by room number, lowest first">Sort</button>
 
-                <button onclick="clearRegister()">Clear</button>
+                <button
+                    onclick="clearRegister()"
+                    title="Remove every row and reset this group's fields - cannot be undone">Clear</button>
 
             </div>
 
@@ -454,17 +469,23 @@
 
             <div class="action-group-title">Panels</div>
 
+            <div class="action-group-subtitle">
+                Optional extras, tucked away until needed.
+            </div>
+
             <div class="action-bar">
 
                 <button
                     id="btnToggleNotes"
                     class="toggle-button"
-                    onclick="toggleNotes()">&#9662; Notes</button>
+                    onclick="toggleNotes()"
+                    title="Show or hide the notes field for this group">&#9662; Notes</button>
 
                 <button
                     id="btnToggleBulkImport"
                     class="toggle-button"
-                    onclick="toggleBulkImport()">&#9662; Bulk Import</button>
+                    onclick="toggleBulkImport()"
+                    title="Paste room data as plain text instead of typing row by row">&#9662; Bulk Import</button>
 
                 <button
                     id="btnShortcutHelp"
@@ -620,13 +641,20 @@
 
             <div class="action-group-title">Meal Plan</div>
 
+            <div class="action-group-subtitle">
+                Set one meal plan for every room in this
+                group at once, instead of row by row.
+            </div>
+
             <div class="action-bar">
 
                 <label class="sr-label" for="bulkMealPlan">
                     Meal plan for all rows
                 </label>
 
-                <select id="bulkMealPlan">
+                <select
+                    id="bulkMealPlan"
+                    title="Meal plan to apply to every row">
                     <option value="CP">CP — Breakfast</option>
                     <option value="MAP">MAP — Half Board</option>
                     <option value="AP">AP — Full Board</option>
@@ -634,7 +662,9 @@
                     <option value="">Not Set</option>
                 </select>
 
-                <button id="btnApplyMealPlan">Apply to All</button>
+                <button
+                    id="btnApplyMealPlan"
+                    title="Apply the selected meal plan to every row in this group">Apply to All</button>
 
             </div>
 
@@ -642,19 +672,31 @@
 
         <div class="action-group">
 
-            <div class="action-group-title">Group</div>
+            <div class="action-group-title">Save &amp; Load</div>
+
+            <div class="action-group-subtitle">
+                Save this group, open a different one, or
+                export its data to a file.
+            </div>
 
             <div class="action-bar">
 
-                <button id="btnSaveGroup" class="primary-action">Save Group</button>
+                <button
+                    id="btnSaveGroup"
+                    class="primary-action"
+                    title="Save this group's current data">Save Group</button>
 
-                <button id="btnOpenGroup">Open</button>
+                <button
+                    id="btnOpenGroup"
+                    title="Open a different saved group, replacing what's on screen">Open</button>
 
-                <button id="btnExportJson">JSON</button>
+                <button
+                    id="btnExportJson"
+                    title="Download this group as a JSON file">JSON</button>
 
-                <button onclick="exportCSV()">CSV</button>
-
-                <button id="btnCheckOutGroup">Check Out Group</button>
+                <button
+                    onclick="exportCSV()"
+                    title="Download this group's rooming list as a CSV file">CSV</button>
 
                 <input
                     type="file"
@@ -668,17 +710,79 @@
 
         <div class="action-group">
 
-            <div class="action-group-title">Print &amp; Checks</div>
+            <div class="action-group-title">Checkout</div>
+
+            <div class="action-group-subtitle">
+                A workflow status change, not a save - marks
+                every room in this group as checked out.
+            </div>
 
             <div class="action-bar">
 
-                <button id="btnPrintRegister">Print</button>
+                <button
+                    id="btnCheckOutGroup"
+                    title="Mark every room in this group as checked out">Check Out Group</button>
 
-                <button id="btnPrintBlank">Blank</button>
+            </div>
 
-                <button onclick="showValidationReport()">Duplicates</button>
+        </div>
 
-                <button onclick="showMealAnalytics()">Meals</button>
+        <div class="action-group">
+
+            <div class="action-group-title">Print This Group</div>
+
+            <div class="action-group-subtitle">
+                Printed forms filled with this specific
+                group's actual guests and rooms.
+            </div>
+
+            <div class="action-bar">
+
+                <button
+                    id="btnPrintRegister"
+                    title="Print the arrival register for this group's actual guests">Print Register</button>
+
+            </div>
+
+        </div>
+
+        <div class="action-group">
+
+            <div class="action-group-title">Blank Forms</div>
+
+            <div class="action-group-subtitle">
+                An empty template for handwritten entry -
+                not tied to this or any group.
+            </div>
+
+            <div class="action-bar">
+
+                <button
+                    id="btnPrintBlank"
+                    title="Print a blank arrival register template, not filled with any group's data">Blank Register</button>
+
+            </div>
+
+        </div>
+
+        <div class="action-group">
+
+            <div class="action-group-title">Validation &amp; Reports</div>
+
+            <div class="action-group-subtitle">
+                Check this group for problems, or see a
+                quick meal-plan breakdown.
+            </div>
+
+            <div class="action-bar">
+
+                <button
+                    onclick="showValidationReport()"
+                    title="Check this group for duplicate room numbers or duplicate guest names">Check Duplicates</button>
+
+                <button
+                    onclick="showMealAnalytics()"
+                    title="See a quick EP/CP/MAP/AP breakdown for this group">Meal Breakdown</button>
 
             </div>
 
@@ -1773,6 +1877,12 @@
 
         <div id="importStep2" class="import-step" style="display:none;">
 
+            <p
+                id="importValidationWarning"
+                class="doc-warning"
+                style="display:none;">
+            </p>
+
             <div class="action-bar">
 
                 <label class="sr-label" for="importHeaderRowInput">
@@ -1837,7 +1947,7 @@
 
             <div id="importReviewBody"></div>
 
-            <div class="action-bar" style="margin-top:16px;">
+            <div id="importConfirmBar" class="action-bar" style="margin-top:16px;">
 
                 <button id="btnImportBackToMapping">
                     Back
@@ -1846,6 +1956,37 @@
                 <button id="btnConfirmImport" class="primary-action">
                     Confirm Import
                 </button>
+
+            </div>
+
+            <!-- Inline, not the shared confirm dialog - that
+                 overlay was rendering behind this modal
+                 instead of on top of it. This sits in the
+                 same screen, so there's no second overlay
+                 to conflict with. -->
+
+            <div
+                id="importConfirmInline"
+                class="doc-warning"
+                style="display:none; margin-top:16px;">
+
+                <p>
+                    Create these groups now? This cannot be
+                    undone automatically - review the list
+                    above first.
+                </p>
+
+                <div class="action-bar">
+
+                    <button id="btnImportConfirmCancel">
+                        Cancel
+                    </button>
+
+                    <button id="btnImportConfirmYes" class="primary-action">
+                        Yes, Import
+                    </button>
+
+                </div>
 
             </div>
 

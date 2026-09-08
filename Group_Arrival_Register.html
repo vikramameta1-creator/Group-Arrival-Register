@@ -1126,9 +1126,12 @@
                 <input
                     type="text"
                     id="newAgentName"
-                    placeholder="e.g. Udaipur Holidays">
+                    placeholder="e.g. Udaipur Holidays"
+                    title="Name of the new agent to add">
 
-                <button id="btnAddAgent">Add Agent</button>
+                <button
+                    id="btnAddAgent"
+                    title="Add this agent to the managed list">Add Agent</button>
 
             </div>
 
@@ -1167,7 +1170,9 @@
                     Agent
                 </label>
 
-                <select id="agentRateSelect">
+                <select
+                    id="agentRateSelect"
+                    title="Choose which agent's rate card to view or edit">
                     <option value="">No agents yet</option>
                 </select>
 
@@ -1196,26 +1201,41 @@
 
         <div class="action-bar">
 
-            <select id="seasonalCategorySelect">
-                <option value="">No categories</option>
-            </select>
+            <label class="rate-input-label">
+                <span class="rate-plan-tag">Category</span>
+                <select
+                    id="seasonalCategorySelect"
+                    title="Which room category this period applies to">
+                    <option value="">No categories</option>
+                </select>
+            </label>
 
-            <input
-                type="number"
-                id="seasonalOccupancyInput"
-                min="1"
-                placeholder="Pax"
-                style="width:70px;">
+            <label class="rate-input-label">
+                <span class="rate-plan-tag">Pax</span>
+                <input
+                    type="number"
+                    id="seasonalOccupancyInput"
+                    min="1"
+                    placeholder="Pax"
+                    title="Occupancy count this period applies to"
+                    style="width:70px;">
+            </label>
 
-            <input
-                type="date"
-                id="seasonalDateFrom"
-                title="From">
+            <label class="rate-input-label">
+                <span class="rate-plan-tag">From</span>
+                <input
+                    type="date"
+                    id="seasonalDateFrom"
+                    title="First date this period applies from">
+            </label>
 
-            <input
-                type="date"
-                id="seasonalDateTo"
-                title="To">
+            <label class="rate-input-label">
+                <span class="rate-plan-tag">To</span>
+                <input
+                    type="date"
+                    id="seasonalDateTo"
+                    title="Last date this period applies to">
+            </label>
 
             <label class="rate-input-label">
                 <span class="rate-plan-tag">EP</span>
@@ -1223,6 +1243,7 @@
                     type="number"
                     id="seasonalRate_EP"
                     min="0"
+                    title="EP rate for this period - leave blank to use the standing rate"
                     style="width:80px;">
             </label>
 
@@ -1232,6 +1253,7 @@
                     type="number"
                     id="seasonalRate_CP"
                     min="0"
+                    title="CP rate for this period - leave blank to use the standing rate"
                     style="width:80px;">
             </label>
 
@@ -1241,6 +1263,7 @@
                     type="number"
                     id="seasonalRate_MAP"
                     min="0"
+                    title="MAP rate for this period - leave blank to use the standing rate"
                     style="width:80px;">
             </label>
 
@@ -1250,10 +1273,13 @@
                     type="number"
                     id="seasonalRate_AP"
                     min="0"
+                    title="AP rate for this period - leave blank to use the standing rate"
                     style="width:80px;">
             </label>
 
-            <button id="btnAddSeasonalRate">
+            <button
+                id="btnAddSeasonalRate"
+                title="Add this as a new seasonal period for the selected agent">
                 Add Period
             </button>
 

@@ -2888,9 +2888,23 @@ body{
 
 }
 
+.rate-input-label{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:3px;
+
+    font-size:11px;
+
+}
+
 .rate-plan-tag{
 
     font-weight:700;
+
+    color:var(--muted);
 
 }
 
